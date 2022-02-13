@@ -4,11 +4,6 @@
 #include <mutex>
 #include <utility>
 
-#ifdef _WIN32
-
-#include <sys/select.h>
-
-#endif
 
 using namespace bstcp;
 
@@ -18,7 +13,7 @@ TcpServer::TcpServer(uint16_t port,
                      _handler_function_t handler,
                      _con_handler_function_t connect_hndl,
                      _con_handler_function_t disconnect_hndl,
-                     uint thread_count
+                     size_t thread_count
 )
         : _port(port)
           , _thread_pool(thread_count)
@@ -76,7 +71,7 @@ bstcp::TcpServer::ServerStatus TcpServer::start() {
 
     _status = ServerStatus::up;
     _thread_pool.addJob([this] { _handling_accept_loop(); });
-   // _thread_pool.addJob([this] { _waiting_recv_loop(); });
+    _thread_pool.addJob([this] { _waiting_recv_loop(); });
 
     return _status;
 }
@@ -110,7 +105,7 @@ bool TcpServer::connect_to(uint32_t host, uint16_t port,
         return false;
     }
 
-    std::shared_ptr<Client> client(new Client(std::move(client_socket)));
+    std::unique_ptr<Client> client(new Client(std::move(client_socket)));
     connect_hndl(client);
     _client_mutex.lock();
     _client_list.emplace_back(std::move(client));
@@ -119,7 +114,7 @@ bool TcpServer::connect_to(uint32_t host, uint16_t port,
 }
 
 void TcpServer::send_to(const void *buffer, const size_t size) {
-    for (std::shared_ptr<Client> &client: _client_list) {
+    for (std::unique_ptr<Client> &client: _client_list) {
         client->send_to(buffer, size);
     }
 }
@@ -128,7 +123,7 @@ bool TcpServer::send_to_by(uint32_t host, uint16_t port, const void *buffer,
                            const size_t size) {
     bool data_is_sended = false;
 
-    for (std::shared_ptr<Client> &client: _client_list)
+    for (std::unique_ptr<Client> &client: _client_list)
         if (client->get_host() == host &&
             client->get_port() == port) {
             client->send_to(buffer, size);
@@ -140,7 +135,7 @@ bool TcpServer::send_to_by(uint32_t host, uint16_t port, const void *buffer,
 
 bool TcpServer::disconnect_by(uint32_t host, uint16_t port) {
     bool client_is_disconnected = false;
-    for (std::shared_ptr<Client> &client: _client_list)
+    for (std::unique_ptr<Client> &client: _client_list)
         if (client->get_host() == host &&
             client->get_port() == port) {
             client->disconnect();
@@ -150,7 +145,7 @@ bool TcpServer::disconnect_by(uint32_t host, uint16_t port) {
 }
 
 void TcpServer::disconnect_all() {
-    for (std::shared_ptr<Client> &client: _client_list)
+    for (std::unique_ptr<Client> &client: _client_list)
         client->disconnect();
 }
 
@@ -161,14 +156,12 @@ void TcpServer::_handling_accept_loop() {
 
         // Enable keep alive for client
         if (_enable_keep_alive(client_socket.get_socket())) {
-            std::shared_ptr<Client> client(
+            std::unique_ptr<Client> client(
                     new Client(std::move(client_socket)));
             _connect_hndl(client);
-            _thread_pool.addJob(
-                [this, &client] {
-                    _handler(client);
-                    client->disconnect();
-                });
+            _client_mutex.lock();
+            _client_list.emplace_back(std::move(client));
+            _client_mutex.unlock();
         }
     }
 
@@ -185,11 +178,11 @@ void TcpServer::_waiting_recv_loop() {
                 if (client->get_status() == SocketStatus::disconnected) {
                     _thread_pool.addJob([this, &client, it] {
                         client->_access_mtx.lock();
-                        Client *pointer = client.get();
+                        Client *pointer = client.release();
                         client = nullptr;
                         pointer->_access_mtx.unlock();
                         _disconnect_hndl(
-                                reinterpret_cast<std::shared_ptr<Client> &>(pointer));
+                                reinterpret_cast<std::unique_ptr<Client> &>(pointer));
                         _client_list.erase(it);
                         delete pointer;
                     });
@@ -197,7 +190,9 @@ void TcpServer::_waiting_recv_loop() {
                     _thread_pool.addJob(
                         [this, &client] {
                             client->_access_mtx.lock();
-                            _handler(client);
+                            if (client->get_status() != SocketStatus::disconnected) {
+                                _handler(client);
+                            }
                             client->_access_mtx.unlock();
                         });
                 }
@@ -213,10 +208,14 @@ void TcpServer::_waiting_recv_loop() {
 bool TcpServer::_enable_keep_alive(socket_t socket) {
     int flag = 1;
 #ifdef _WIN32
-    tcp_keepalive ka {1, ka_conf.ka_idle * 1000, ka_conf.ka_intvl * 1000};
-  if (setsockopt (socket, SOL_SOCKET, SO_KEEPALIVE, (const char *) &flag, sizeof(flag)) != 0) return false;
-  unsigned long numBytesReturned = 0;
-  if(WSAIoctl(socket, SIO_KEEPALIVE_VALS, &ka, sizeof (ka), nullptr, 0, &numBytesReturned, 0, nullptr) != 0) return false;
+    tcp_keepalive ka {1, _ka_conf.ka_idle * 1000, _ka_conf.ka_intvl * 1000};
+    if (setsockopt (socket, SOL_SOCKET, SO_KEEPALIVE, (const char *) &flag, sizeof(flag)) != 0) {
+        return false;
+    }
+    unsigned long numBytesReturned = 0;
+    if(WSAIoctl(socket, SIO_KEEPALIVE_VALS, &ka, sizeof (ka), nullptr, 0, &numBytesReturned, 0, nullptr) != 0)  {
+        return false;
+    }
 #else //POSIX
     if (setsockopt(socket, SOL_SOCKET, SO_KEEPALIVE, &flag, sizeof(flag)) ==
         -1)

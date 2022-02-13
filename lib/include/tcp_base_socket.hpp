@@ -42,7 +42,7 @@ class BaseSocket : public ISocket {
 
     status disconnect() final;
 
-    bool recv_from(void *buffer, size_t size) override;
+    bool recv_from(void *buffer, int size) override;
 
     bool send_to(const void *buffer, size_t size) const override;
 

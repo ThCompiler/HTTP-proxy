@@ -59,7 +59,7 @@ struct TcpServer {
                        _handler_function_t handler = _default_data_handler,
                        _con_handler_function_t connect_hndl = _default_connsection_handler,
                        _con_handler_function_t disconnect_hndl = _default_connsection_handler,
-                       uint thread_count = std::thread::hardware_concurrency()
+                       size_t thread_count = std::thread::hardware_concurrency()
     );
 
     ~TcpServer();
@@ -111,9 +111,9 @@ struct TcpServer {
     _con_handler_function_t _connect_hndl       = _default_connsection_handler;
     _con_handler_function_t _disconnect_hndl    = _default_connsection_handler;
 
-    typedef std::list<std::shared_ptr<Client>>::iterator ClientIterator;
+    typedef std::list<std::unique_ptr<Client>>::iterator ClientIterator;
 
-    std::list<std::shared_ptr<Client>> _client_list;
+    std::list<std::unique_ptr<Client>> _client_list;
 
     bool _enable_keep_alive(socket_t socket);
 

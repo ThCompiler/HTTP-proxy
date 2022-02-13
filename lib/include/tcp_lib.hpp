@@ -4,6 +4,7 @@
 
 #include <WinSock2.h>
 #include <mstcpip.h>
+#include <ws2tcpip.h>
 
 #else // *nix
 
@@ -12,6 +13,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sys/types.h>
+#include <netdb.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <cstdio>
@@ -41,7 +44,7 @@ constexpr uint32_t localhost = 0x0100007f; //127.0.0.1
 #ifdef _WIN32 // Windows NT
 
 typedef int sock_len_t;
-typedef SOCKADDR_IN Socket_addr_in;
+typedef SOCKADDR_IN socket_addr_in;
 typedef SOCKET socket_t;
 typedef u_long ka_prop_t;
 
@@ -55,7 +58,7 @@ typedef int ka_prop_t;
 #endif
 
 template <typename T>
-using uniq_ptr = std::shared_ptr<T>;
+using uniq_ptr = std::unique_ptr<T>;
 
 enum class SocketType : uint8_t {
     client_socket       = 0,
@@ -74,6 +77,7 @@ enum class SocketStatus : uint8_t {
     err_socket_listening    = 6,
 };
 
+int hostname_to_ip(const char *hostname, socket_addr_in *addr);
 
 class ThreadPool {
     std::vector<std::thread> thread_pool;
@@ -82,9 +86,9 @@ class ThreadPool {
     std::condition_variable condition;
     std::atomic<bool> pool_terminated = false;
 
-    void setupThreadPool(uint thread_count) {
+    void setupThreadPool(size_t thread_count) {
         thread_pool.clear();
-        for (uint i = 0; i < thread_count; ++i)
+        for (size_t i = 0; i < thread_count; ++i)
             thread_pool.emplace_back(&ThreadPool::workerLoop, this);
     }
 
@@ -105,7 +109,7 @@ class ThreadPool {
     }
 
   public:
-    ThreadPool(uint thread_count = std::thread::hardware_concurrency()) {
+    ThreadPool(size_t thread_count = std::thread::hardware_concurrency()) {
         setupThreadPool(thread_count);
     }
 
@@ -133,7 +137,7 @@ class ThreadPool {
         for (auto &thread: thread_pool) thread.join();
     }
 
-    [[nodiscard]] uint getThreadCount() const { return thread_pool.size(); }
+    [[nodiscard]] size_t getThreadCount() const { return thread_pool.size(); }
 
     void dropUnstartedJobs() {
         pool_terminated = true;
@@ -151,7 +155,7 @@ class ThreadPool {
         join();
     }
 
-    void start(uint thread_count = std::thread::hardware_concurrency()) {
+    void start(size_t thread_count = std::thread::hardware_concurrency()) {
         if (!pool_terminated) return;
         pool_terminated = false;
         setupThreadPool(thread_count);
@@ -167,7 +171,7 @@ class IReceivable {
   public:
     virtual ~IReceivable() = default;
 
-    virtual bool recv_from(void *buffer, size_t size) = 0;
+    virtual bool recv_from(void *buffer, int size) = 0;
 };
 
 class ISendable {
@@ -205,19 +209,19 @@ class ISocket : public ISendRecvable, IDisconnectable {
 #ifdef _WIN32 // Windows NT
 
 namespace {
-class _WinSocketIniter {
-    static WSAData w_data;
+class WinSocketIniter {
+    WSADATA w_data;
     public:
-    _WinSocketIniter() {
-        WSAStartup(MAKEWORD(2, 2), &w_data)
+    WinSocketIniter() {
+        w_data = WSADATA();
+        WSAStartup(MAKEWORD(2, 2), &w_data);
     }
 
-    ~_WinSocketIniter() {
-    WSACleanup()
-}
+    ~WinSocketIniter() {
+        WSACleanup();
+    }
 };
-
-static inline _WinSocketIniter _winsock_initer;
+[[maybe_unused]] static inline WinSocketIniter _winsock_initer;
 }
 
 #endif

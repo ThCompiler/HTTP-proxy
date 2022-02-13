@@ -2,8 +2,6 @@
 
 using namespace bstcp;
 
-
-
 #include <iostream>
 
 BaseSocket::~BaseSocket() {
@@ -33,7 +31,6 @@ status BaseSocket::_init_as_client(uint32_t host, uint16_t port, uint8_t type) {
 #endif
 
 #ifdef _WIN32
-    if(WSAStartup(MAKEWORD(2, 2), &w_data) != 0) {}
     if((_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_IP)) == INVALID_SOCKET) {
         return _status = status::err_socket_init;
     }
@@ -44,8 +41,8 @@ status BaseSocket::_init_as_client(uint32_t host, uint16_t port, uint8_t type) {
 #endif
 
 #ifdef _WIN32
-    if (unsigned long mode = 0; (uint8_t)type & (uint8_t)SocketType::nonblocking_socket
-        && ioctlsocket(serv_socket, FIONBIO, &mode) == SOCKET_ERROR) {
+    if (unsigned long mode = 1; (uint8_t)type & (uint8_t)SocketType::nonblocking_socket
+        && ioctlsocket(_socket, FIONBIO, &mode) == SOCKET_ERROR) {
         return _status = status::err_socket_init;
     }
 #endif
@@ -79,15 +76,22 @@ status BaseSocket::accept(const BaseSocket& server_socket) {
 
     sock_len_t addrlen = sizeof(socket_addr_in);
 #ifdef _WIN32
-    if ((_socket = accept(server_socket._socket, (struct sockaddr *) &_address,
+    if ((_socket = ::accept(server_socket._socket, (struct sockaddr *) &_address,
                            &addrlen)) == 0) {
 #else
     if ((_socket = accept4(server_socket._socket, (struct sockaddr *) &_address,
-                           &addrlen,
-                          0)) < 0) {
+                           &addrlen, O_NONBLOCK)) < 0) {
 #endif
         return _status = status::disconnected;
     }
+
+#ifdef _WIN32
+    if (unsigned long mode = 1;  ioctlsocket(_socket, FIONBIO, &mode) == SOCKET_ERROR) {
+        return _status = status::err_socket_init;
+    }
+#endif
+
+
     return _status = status::connected;
 }
 
@@ -103,24 +107,25 @@ status BaseSocket::_init_as_server(uint32_t, uint16_t port, uint8_t type) {
 
 
 #ifdef _WIN32
-    if ((_serv_socket = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
-        return _status = ServerStatus::err_socket_init;
+    if ((_socket = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
+        return _status = status::err_socket_init;
     }
 
-    if (unsigned long mode = 0; ioctlsocket(serv_socket, FIONBIO, &mode) == SOCKET_ERROR) {
-        return _status = ServerStatus::err_socket_init;
+    if (unsigned long mode = 1; (uint8_t)type & (uint8_t)SocketType::nonblocking_socket
+        && ioctlsocket(_socket, FIONBIO, &mode) == SOCKET_ERROR) {
+        return _status = status::err_socket_init;
     }
 
-     if (flag = true; setsockopt(_serv_socket, SOL_SOCKET, SO_REUSEADDR, (char *) &flag, sizeof(flag)) == -1)  {
-        return _status = ServerStatus::err_socket_bind;
+     if (bool flag = true; setsockopt(_socket, SOL_SOCKET, SO_REUSEADDR, (char *) &flag, sizeof(flag)) == -1)  {
+        return _status = status::err_socket_bind;
     }
 
-    if (bind(_serv_socket, (struct sockaddr *) &address, sizeof(address)) == SOCKET_ERROR) {
-        return _status = ServerStatus::err_socket_bind;
+    if (bind(_socket, (struct sockaddr *) &address, sizeof(address)) == SOCKET_ERROR) {
+        return _status = status::err_socket_bind;
     }
 
-    if (listen(_serv_socket, SOMAXCONN) == SOCKET_ERROR) {
-        return _status = ServerStatus::err_socket_listening;
+    if (listen(_socket, SOMAXCONN) == SOCKET_ERROR) {
+        return _status = status::err_socket_listening;
     }
 #else
     int _type = SOCK_STREAM;
@@ -155,7 +160,7 @@ status BaseSocket::_init_as_server(uint32_t, uint16_t port, uint8_t type) {
     return _status = status::connected;
 }
 
-bool BaseSocket::recv_from(void *buffer, size_t size) {
+bool BaseSocket::recv_from(void *buffer, int size) {
     if (_status != SocketStatus::connected)  {
         return false;
     }
@@ -166,7 +171,7 @@ bool BaseSocket::recv_from(void *buffer, size_t size) {
     ssize_t answ = recv(_socket, reinterpret_cast<char *>(buffer), size, 0);
 #endif
 
-    if (!answ || !size) {
+    if (answ <= 0 || !size) {
         return false;
     }
 
@@ -210,7 +215,7 @@ status BaseSocket::disconnect() {
 
 uint32_t BaseSocket::get_host() const {
 #ifdef _WIN32
-    return address.sin_addr.S_un.S_addr;
+    return _address.sin_addr.S_un.S_addr;
 #else
     return _address.sin_addr.s_addr;
 #endif
