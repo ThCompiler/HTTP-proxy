@@ -1,12 +1,24 @@
 #pragma once
 
-#ifdef _WIN32
-#else
+#ifdef _WIN32 // Windows NT
+
+#include <WinSock2.h>
+#include <mstcpip.h>
+
+#else // *nix
+
 #define SD_BOTH 0
 
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <cstdio>
+#include <cstdlib>
 
 #endif
+
 
 #include <cstdint>
 #include <cstring>
@@ -27,29 +39,39 @@ constexpr uint32_t localhost = 0x0100007f; //127.0.0.1
 
 
 #ifdef _WIN32 // Windows NT
+
 typedef int sock_len_t;
 typedef SOCKADDR_IN Socket_addr_in;
 typedef SOCKET socket_t;
 typedef u_long ka_prop_t;
+
 #else // POSIX
+
 typedef socklen_t sock_len_t;
 typedef struct sockaddr_in socket_addr_in;
 typedef int socket_t;
 typedef int ka_prop_t;
+
 #endif
 
+template <typename T>
+using uniq_ptr = std::shared_ptr<T>;
 
 enum class SocketType : uint8_t {
-    client_socket = 0,
-    server_socket = 1
+    client_socket       = 0,
+    server_socket       = 1,
+    blocking_socket     = 2,
+    nonblocking_socket  = 4,
 };
 
 enum class SocketStatus : uint8_t {
-    connected = 0,
-    err_socket_init = 1,
-    err_socket_bind = 2,
-    err_socket_connect = 3,
-    disconnected = 4
+    connected               = 0,
+    err_socket_init         = 1,
+    err_socket_bind         = 2,
+    err_socket_connect      = 3,
+    disconnected            = 4,
+    err_socket_type         = 5,
+    err_socket_listening    = 6,
 };
 
 
@@ -139,25 +161,45 @@ class ThreadPool {
 
 typedef std::vector<uint8_t> tcp_data_t;
 
-class BaseSocket {
-  public:
-    typedef SocketStatus status;
+typedef SocketStatus status;
 
-    virtual ~BaseSocket() = default;
+class IReceivable {
+  public:
+    virtual ~IReceivable() = default;
+
+    virtual bool recv_from(void *buffer, size_t size) = 0;
+};
+
+class ISendable {
+  public:
+    virtual ~ISendable() = default;
+
+    virtual bool send_to(const void *buffer, size_t size) const = 0;
+};
+
+class ISendRecvable : public IReceivable, ISendable {
+  public:
+    ~ISendRecvable() override = default;
+};
+
+class IDisconnectable {
+  public:
+    virtual ~IDisconnectable() = default;
 
     virtual status disconnect() = 0;
+};
 
-    [[nodiscard]] virtual status getStatus() const = 0;
+class ISocket : public ISendRecvable, IDisconnectable {
+  public:
+    ~ISocket() override = default;
 
-    virtual bool sendData(const void *buffer, size_t size) const = 0;
+    [[nodiscard]] virtual status get_status() const = 0;
 
-    virtual tcp_data_t loadData() = 0;
+    [[nodiscard]] virtual uint32_t get_host() const = 0;
 
-    [[nodiscard]] virtual uint32_t getHost() const = 0;
+    [[nodiscard]] virtual uint16_t get_port() const = 0;
 
-    [[nodiscard]] virtual uint16_t getPort() const = 0;
-
-    [[nodiscard]] virtual SocketType getType() const = 0;
+    [[nodiscard]] virtual SocketType get_type() const = 0;
 };
 
 #ifdef _WIN32 // Windows NT
