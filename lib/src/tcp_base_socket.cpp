@@ -64,7 +64,7 @@ status BaseSocket::_init_as_client(uint32_t host, uint16_t port, uint16_t type) 
         close(_socket);
         return _status = status::err_socket_init;
     }
-    flags = (type & (uint16_t)SocketType::nonblocking_socket) ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
+    flags = (type & (uint16_t)SocketType::nonblocking_socket) ? (flags | O_NONBLOCK) : (flags & ~O_NONBLOCK);
     if (fcntl(_socket, F_SETFL, flags) != 0) {
         close(_socket);
         return _status = status::err_socket_init;
@@ -267,8 +267,8 @@ bool BaseSocket::is_allow_to_read(long timeout) const {
     FD_ZERO(&rfds);
     FD_SET(_socket, &rfds);
 
-    tv.tv_sec = 0;
-    tv.tv_usec = timeout;
+    tv.tv_sec = timeout / 1000;
+    tv.tv_usec = timeout % 1000;
     int selres = select(_socket + 1, &rfds, nullptr, nullptr, &tv);
     switch (selres){
         case -1:
@@ -296,8 +296,8 @@ bool BaseSocket::is_allow_to_write(long timeout) const {
     FD_ZERO(&wfds);
     FD_SET(_socket, &wfds);
 
-    tv.tv_sec = 0;
-    tv.tv_usec = timeout;
+    tv.tv_sec = timeout / 1000;
+    tv.tv_usec = timeout % 1000;
     int selres = select(_socket + 1, nullptr, &wfds, nullptr, &tv);
     switch (selres){
         case -1:
@@ -327,8 +327,8 @@ bool BaseSocket::is_allow_to_rwrite(long timeout) const {
     FD_ZERO(&rfds);
     FD_SET(_socket, &rfds);
 
-    tv.tv_sec = 0;
-    tv.tv_usec = timeout;
+    tv.tv_sec = timeout / 1000;
+    tv.tv_usec = timeout % 1000;
     int selres = select(_socket + 1,  &rfds, &wfds, nullptr, &tv);
     switch (selres){
         case -1:

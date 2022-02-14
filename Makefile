@@ -7,7 +7,7 @@ build:
 	cd build
 	cmake ..
 
-docker-build:
+build-docker:
 	docker build --no-cache . --tag $(PROJECT) --build-arg PORT=$(PORT)
 
 docker-run:

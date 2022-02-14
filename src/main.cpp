@@ -49,7 +49,7 @@ std::string getHostname(std::string &url) {
 }
 
 const std::regex url_r(
-        R"((((ftp|http|https):\/\/)|(\/)|(..\/))(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?)");
+        R"((((http|https):\/\/)|(\/)|(..\/))(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?)");
 const std::regex proxy(R"((\r\n|\n)(Proxy-Connection[A-z: .-]+))");
 
 std::string send_requst(std::string url, std::string &data) {
@@ -69,7 +69,7 @@ std::string send_requst(std::string url, std::string &data) {
     BaseSocket to;
     socket_addr_in adr;
     if (hostname_to_ip(hostname.c_str(), &adr) == -1) {
-        return "";
+        return "HTTP/1.1 523 Origin Is Unreachable \n Can't resolve hostname " + hostname +  "\n\n";
     }
 
 #ifdef _WIN32
@@ -79,13 +79,13 @@ std::string send_requst(std::string url, std::string &data) {
 #endif
                 (uint16_t) SocketType::nonblocking_socket
                 | (uint16_t) SocketType::client_socket) != SocketStatus::connected) {
-        return "HTTP/1.1 500 Error \n Can't connect to host \n\n";
+        return "HTTP/1.1 503 Service Unavailable \n Can't connect to host \n\n";
     }
     to.send_to(data.data(), data.size());
     data.clear();
 
     if (!to.is_allow_to_read(2000)) {
-        return "HTTP/1.1 524 A Timeout Occurred  \n 2s time out \n\n";
+        return "HTTP/1.1 408 Request Timeout  \n 2s time out \n\n";
     }
 
     tcp_data_t buffer(1024);
@@ -118,14 +118,13 @@ std::string sendRequest(std::string &data) {
     return {};
 }
 
-
 int main(int argc, char *argv[]) {
     int opt;
 
     int http_port = 8081;
     while ((opt = getopt(argc, argv, "p:")) != -1) {
         if (opt == 'p') {
-            http_port = strtol(optarg, nullptr, 10);
+            http_port = (int)strtol(optarg, nullptr, 10);
         }
     }
 
@@ -145,9 +144,9 @@ int main(int argc, char *argv[]) {
                              );
                              status = client->recv_from(buffer.data(), 1024);
                          }
-                         auto res = sendRequest(data);
                          std::cout << "Client " << getHostStr(client) << " send data [ " << data.size()
                                    << " bytes ]: \n" << (char *) data.data() << '\n';
+                         auto res = sendRequest(data);
                          client->send_to(res.data(), res.size());
                          client->disconnect();
                      },

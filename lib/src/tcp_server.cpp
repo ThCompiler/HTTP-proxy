@@ -178,16 +178,15 @@ void TcpServer::_waiting_recv_loop() {
                 if (!client->_in_use) {
                     client->_in_use = true;
                     if (client->get_status() == SocketStatus::disconnected) {
-                        _thread_pool.addJob([this, &client, it] {
-                            client->_access_mtx.lock();
-                            Client *pointer = client.release();
-                            client = nullptr;
-                            _disconnect_hndl(
-                                    reinterpret_cast<std::unique_ptr<Client> &>(pointer));
-                            _client_list.erase(it);
-                            pointer->_access_mtx.unlock();
-                            delete pointer;
-                        });
+                        client->_access_mtx.lock();
+                        Client *pointer = client.release();
+                        client = nullptr;
+                        _disconnect_hndl(
+                                reinterpret_cast<std::unique_ptr<Client> &>(pointer));
+                        _client_list.erase(it);
+                        pointer->_access_mtx.unlock();
+                        delete pointer;
+                        break;
                     } else {
                         _thread_pool.addJob(
                             [this, &client] {
