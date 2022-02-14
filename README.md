@@ -57,6 +57,7 @@ curl -vvv http://vk.com -x http://localhost:8081
 * Connection #0 to host localhost left intact
 ```
 ##Возможные ошибки
+
 + `404` Если будет передан не известный протокол.
 ```bash
 curl -vvv https://vk.com -x http://localhost:8081
