@@ -56,9 +56,9 @@ curl -vvv http://vk.com -x http://localhost:8081
 </html>
 * Connection #0 to host localhost left intact
 ```
-##Возможные ошибки
+## Возможные ошибки
 
-+ `404` Если будет передан не известный протокол.
+* `404` Если будет передан не известный протокол.
 ```bash
 curl -vvv https://vk.com -x http://localhost:8081
 
@@ -80,13 +80,13 @@ curl -vvv https://vk.com -x http://localhost:8081
 * Closing connection 0
   curl: (56) Received HTTP code 404 from proxy after CONNECT
 ```
-+ `408` Если хост слишком долго не отвечает
+* `408` Если хост слишком долго не отвечает
 <br>Ответ от proxy-server:
 ```bash
 HTTP/1.1 408 Request Timeout  
  2s time out 
 ```
-+ `503` Если не получилось создать соединение с хостом
+* `503` Если не получилось создать соединение с хостом
 ```bash
 curl -vvv http://vk.com:20 -x http://localhost:8081     
 
@@ -106,7 +106,7 @@ curl -vvv http://vk.com:20 -x http://localhost:8081
 < 
 * Closing connection 0
 ```
-+ `523` Если не получилось получить информацию о домене
+* `523` Если не получилось получить информацию о домене
 ```bash
 curl -vvv http://vk.cor -x http://localhost:8081 
 
