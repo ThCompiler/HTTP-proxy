@@ -8,41 +8,27 @@ BaseSocket::~BaseSocket() {
     disconnect();
 }
 
-status BaseSocket::init(uint32_t host, uint16_t port, uint8_t type) {
+status BaseSocket::init(uint32_t host, uint16_t port, uint16_t type) {
     if (_status == status::connected) {
         disconnect();
     }
 
-    if ((uint8_t)type & (uint8_t)SocketType::server_socket) {
+    if (type & (uint16_t)SocketType::server_socket) {
         return _init_as_server(host, port, type);
     }
-    if ((uint8_t)type & (uint8_t)SocketType::server_socket) {
+    if (type & (uint16_t)SocketType::client_socket) {
         return _init_as_client(host, port, type);
     }
     return status::err_socket_type;
 }
 
-status BaseSocket::_init_as_client(uint32_t host, uint16_t port, uint8_t type) {
-#ifndef _WIN32
-    int _type = SOCK_STREAM;
-    if ((uint8_t)type & (uint8_t)SocketType::nonblocking_socket) {
-        _type |= SOCK_NONBLOCK;
-    }
-#endif
-
+status BaseSocket::_init_as_client(uint32_t host, uint16_t port, uint16_t type) {
 #ifdef _WIN32
     if((_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_IP)) == INVALID_SOCKET) {
         return _status = status::err_socket_init;
     }
 #else
-    if ((_socket = socket(AF_INET, _type, IPPROTO_IP)) < 0) {
-        return _status = status::err_socket_init;
-    }
-#endif
-
-#ifdef _WIN32
-    if (unsigned long mode = 1; (uint8_t)type & (uint8_t)SocketType::nonblocking_socket
-        && ioctlsocket(_socket, FIONBIO, &mode) == SOCKET_ERROR) {
+    if ((_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_IP)) < 0) {
         return _status = status::err_socket_init;
     }
 #endif
@@ -65,6 +51,25 @@ status BaseSocket::_init_as_client(uint32_t host, uint16_t port, uint8_t type) {
 #endif
         return _status = status::err_socket_connect;
     }
+
+#ifdef _WIN32
+    if (unsigned long mode = 1; type & (uint16_t)SocketType::nonblocking_socket
+                                && ioctlsocket(_socket, FIONBIO, &mode) == SOCKET_ERROR) {
+        closesocket(_socket);
+        return _status = status::err_socket_init;
+    }
+#else
+    int flags = fcntl(_socket, F_GETFL, 0);
+    if (flags == -1) {
+        close(_socket);
+        return _status = status::err_socket_init;
+    }
+    flags = (type & (uint16_t)SocketType::nonblocking_socket) ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
+    if (fcntl(_socket, F_SETFL, flags) != 0) {
+        close(_socket);
+        return _status = status::err_socket_init;
+    }
+#endif
 
     return _status = status::connected;
 }
@@ -95,7 +100,7 @@ status BaseSocket::accept(const BaseSocket& server_socket) {
     return _status = status::connected;
 }
 
-status BaseSocket::_init_as_server(uint32_t, uint16_t port, uint8_t type) {
+status BaseSocket::_init_as_server(uint32_t, uint16_t port, uint16_t type) {
     socket_addr_in address;
 #ifdef _WIN32
     address.sin_addr.S_un.S_addr = INADDR_ANY;
@@ -111,7 +116,7 @@ status BaseSocket::_init_as_server(uint32_t, uint16_t port, uint8_t type) {
         return _status = status::err_socket_init;
     }
 
-    if (unsigned long mode = 1; (uint8_t)type & (uint8_t)SocketType::nonblocking_socket
+    if (unsigned long mode = 1; type & (uint16_t)SocketType::nonblocking_socket
         && ioctlsocket(_socket, FIONBIO, &mode) == SOCKET_ERROR) {
         return _status = status::err_socket_init;
     }
@@ -129,7 +134,7 @@ status BaseSocket::_init_as_server(uint32_t, uint16_t port, uint8_t type) {
     }
 #else
     int _type = SOCK_STREAM;
-    if ((uint8_t)type & (uint8_t)SocketType::nonblocking_socket) {
+    if (type & (uint16_t)SocketType::nonblocking_socket) {
         _type |= SOCK_NONBLOCK;
     }
 
@@ -250,4 +255,93 @@ BaseSocket::BaseSocket(BaseSocket &&sok) noexcept
 #endif
     sok._status = status::disconnected;
     sok._address = socket_addr_in();
+}
+
+bool BaseSocket::is_allow_to_read(long timeout) const {
+    if (_status == status::disconnected) {
+        return false;
+    }
+
+    fd_set rfds;
+    struct timeval tv{};
+    FD_ZERO(&rfds);
+    FD_SET(_socket, &rfds);
+
+    tv.tv_sec = 0;
+    tv.tv_usec = timeout;
+    int selres = select(_socket + 1, &rfds, nullptr, nullptr, &tv);
+    switch (selres){
+        case -1:
+            return false;
+        case 0:
+            return false;
+        default:
+            break;
+    }
+
+    if (FD_ISSET(_socket, &rfds)){
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool BaseSocket::is_allow_to_write(long timeout) const {
+    if (_status == status::disconnected) {
+        return false;
+    }
+
+    fd_set wfds;
+    struct timeval tv{};
+    FD_ZERO(&wfds);
+    FD_SET(_socket, &wfds);
+
+    tv.tv_sec = 0;
+    tv.tv_usec = timeout;
+    int selres = select(_socket + 1, nullptr, &wfds, nullptr, &tv);
+    switch (selres){
+        case -1:
+            return false;
+        case 0:
+            return false;
+        default:
+            break;
+    }
+
+    if (FD_ISSET(_socket, &wfds)){
+        return true;
+    } else {
+        return false;
+    }
+}
+
+bool BaseSocket::is_allow_to_rwrite(long timeout) const {
+    if (_status == status::disconnected) {
+        return false;
+    }
+
+    fd_set rfds, wfds;
+    struct timeval tv{};
+    FD_ZERO(&wfds);
+    FD_SET(_socket, &wfds);
+    FD_ZERO(&rfds);
+    FD_SET(_socket, &rfds);
+
+    tv.tv_sec = 0;
+    tv.tv_usec = timeout;
+    int selres = select(_socket + 1,  &rfds, &wfds, nullptr, &tv);
+    switch (selres){
+        case -1:
+            return false;
+        case 0:
+            return false;
+        default:
+            break;
+    }
+
+    if (FD_ISSET(_socket, &rfds) && FD_ISSET(_socket, &wfds)){
+        return true;
+    } else {
+        return false;
+    }
 }

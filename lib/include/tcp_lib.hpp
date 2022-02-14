@@ -60,11 +60,11 @@ typedef int ka_prop_t;
 template <typename T>
 using uniq_ptr = std::unique_ptr<T>;
 
-enum class SocketType : uint8_t {
-    client_socket       = 0,
-    server_socket       = 1,
-    blocking_socket     = 2,
-    nonblocking_socket  = 4,
+enum class SocketType : uint16_t {
+    client_socket       = 1,
+    server_socket       = 2,
+    blocking_socket     = 4,
+    nonblocking_socket  = 8,
 };
 
 enum class SocketStatus : uint8_t {

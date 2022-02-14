@@ -48,8 +48,8 @@ bstcp::TcpServer::ServerStatus TcpServer::start() {
     }
 
     auto sts = _serv_socket.init(localhost, _port,
-                                 (uint8_t) SocketType::nonblocking_socket
-                                 | (uint8_t) SocketType::server_socket);
+                                 (uint16_t) SocketType::nonblocking_socket
+                                 | (uint16_t) SocketType::server_socket);
     switch (sts) {
         case SocketStatus::connected:
             break;
@@ -93,8 +93,8 @@ bool TcpServer::connect_to(uint32_t host, uint16_t port,
                            const _con_handler_function_t &connect_hndl) {
     BaseSocket client_socket;
     auto sts = client_socket.init(host, port,
-                                  (uint8_t) SocketType::nonblocking_socket
-                                  | (uint8_t) SocketType::client_socket);
+                                  (uint16_t) SocketType::nonblocking_socket
+                                  | (uint16_t) SocketType::client_socket);
     if (sts != status::connected) {
         return false;
     }
@@ -175,26 +175,30 @@ void TcpServer::_waiting_recv_loop() {
         for (auto it = _client_list.begin(); it != _client_list.end(); it++) {
             auto &client = *it;
             if (client) {
-                if (client->get_status() == SocketStatus::disconnected) {
-                    _thread_pool.addJob([this, &client, it] {
-                        client->_access_mtx.lock();
-                        Client *pointer = client.release();
-                        client = nullptr;
-                        pointer->_access_mtx.unlock();
-                        _disconnect_hndl(
-                                reinterpret_cast<std::unique_ptr<Client> &>(pointer));
-                        _client_list.erase(it);
-                        delete pointer;
-                    });
-                } else {
-                    _thread_pool.addJob(
-                        [this, &client] {
+                if (!client->_in_use) {
+                    client->_in_use = true;
+                    if (client->get_status() == SocketStatus::disconnected) {
+                        _thread_pool.addJob([this, &client, it] {
                             client->_access_mtx.lock();
-                            if (client->get_status() != SocketStatus::disconnected) {
-                                _handler(client);
-                            }
-                            client->_access_mtx.unlock();
+                            Client *pointer = client.release();
+                            client = nullptr;
+                            _disconnect_hndl(
+                                    reinterpret_cast<std::unique_ptr<Client> &>(pointer));
+                            _client_list.erase(it);
+                            pointer->_access_mtx.unlock();
+                            delete pointer;
                         });
+                    } else {
+                        _thread_pool.addJob(
+                            [this, &client] {
+                                client->_access_mtx.lock();
+                                if (client->get_status() != SocketStatus::disconnected) {
+                                    _handler(client);
+                                }
+                                client->_in_use = false;
+                                client->_access_mtx.unlock();
+                            });
+                    }
                 }
             }
         }

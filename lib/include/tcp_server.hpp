@@ -128,15 +128,16 @@ struct TcpServer::Client : public BaseSocket {
     Client() = delete;
 
     explicit Client(BaseSocket&& socket)
-        : BaseSocket(std::move(socket)) {}
+        : BaseSocket(std::move(socket))
+        , _in_use(false) {}
 
     Client(const Client&) = delete;
     Client operator=(const Client&) = delete;
 
     Client(Client&& clt) noexcept
         : BaseSocket(std::move(clt))
-        , _access_mtx() {
-    };
+        , _in_use(false)
+        , _access_mtx() {}
 
     Client& operator=(const Client&&) = delete;
 
@@ -145,6 +146,7 @@ struct TcpServer::Client : public BaseSocket {
   private:
     friend struct TcpServer;
 
+    bool        _in_use;
     std::mutex  _access_mtx;
 };
 

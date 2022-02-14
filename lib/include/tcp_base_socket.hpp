@@ -26,7 +26,7 @@ class BaseSocket : public ISocket {
 
     BaseSocket& operator=(BaseSocket&& sok)  noexcept;
 
-    status init(uint32_t host, uint16_t port, uint8_t type);
+    status init(uint32_t host, uint16_t port, uint16_t type);
 
     status accept(const BaseSocket& server_socket);
 
@@ -58,12 +58,17 @@ class BaseSocket : public ISocket {
         return _address;
     }
 
+    bool is_allow_to_read(long timeout) const;
+
+    bool is_allow_to_write(long timeout) const;
+
+    bool is_allow_to_rwrite(long timeout) const;
 
   private:
 
-    status _init_as_client(uint32_t host, uint16_t port, uint8_t type);
+    status _init_as_client(uint32_t host, uint16_t port, uint16_t type);
 
-    status _init_as_server(uint32_t host, uint16_t port, uint8_t type);
+    status _init_as_server(uint32_t host, uint16_t port, uint16_t type);
 
     status          _status = status::connected;
     socket_t        _socket;
