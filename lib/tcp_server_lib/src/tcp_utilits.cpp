@@ -1,5 +1,4 @@
-#include "tcp_lib.hpp"
-
+#include "tcp_server_lib.hpp"
 
 int bstcp::hostname_to_ip(const char *hostname, bstcp::socket_addr_in *addr) {
     struct addrinfo hints{}, *servinfo, *p;

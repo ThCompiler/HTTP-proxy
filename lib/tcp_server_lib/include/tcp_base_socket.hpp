@@ -1,6 +1,6 @@
 #pragma once
 
-#include "tcp_lib.hpp"
+#include "tcp_utilits.hpp"
 
 namespace bstcp {
 
@@ -10,11 +10,13 @@ class BaseSocket : public ISocket {
 #ifdef _WIN32
     BaseSocket()
         : _status(status::disconnected)
+        , _type((uint16_t)SocketType::unset_type)
         , _socket(INVALID_SOCKET)
         , _address() {}
 #else
     BaseSocket()
         : _status(status::disconnected)
+        , _type((uint16_t)SocketType::unset_type)
           , _socket(-1)
           , _address() {}
 #endif
@@ -36,9 +38,7 @@ class BaseSocket : public ISocket {
 
     [[nodiscard]] uint16_t get_port() const override;
 
-    [[nodiscard]] status get_status() const override {
-        return _status;
-    }
+    [[nodiscard]] status get_status() const override;
 
     status disconnect() final;
 
@@ -46,23 +46,17 @@ class BaseSocket : public ISocket {
 
     bool send_to(const void *buffer, size_t size) const override;
 
-    [[nodiscard]] SocketType get_type() const override {
-        return SocketType::server_socket;
-    }
+    [[nodiscard]] SocketType get_type() const override;
 
-    socket_t get_socket() {
-        return _socket;
-    }
+    socket_t get_socket();
 
-    [[nodiscard]] socket_addr_in get_address() const {
-        return _address;
-    }
+    [[nodiscard]] socket_addr_in get_address() const;
 
-    bool is_allow_to_read(long timeout) const;
+    [[nodiscard]] bool is_allow_to_read(long timeout) const;
 
-    bool is_allow_to_write(long timeout) const;
+    [[nodiscard]] bool is_allow_to_write(long timeout) const;
 
-    bool is_allow_to_rwrite(long timeout) const;
+    [[nodiscard]] bool is_allow_to_rwrite(long timeout) const;
 
   private:
 
@@ -70,7 +64,9 @@ class BaseSocket : public ISocket {
 
     status _init_as_server(uint32_t host, uint16_t port, uint16_t type);
 
-    status          _status = status::connected;
+
+    status          _status;
+    uint16_t        _type;
     socket_t        _socket;
     socket_addr_in  _address;
 };

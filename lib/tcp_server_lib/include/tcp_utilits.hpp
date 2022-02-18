@@ -61,6 +61,7 @@ template <typename T>
 using uniq_ptr = std::unique_ptr<T>;
 
 enum class SocketType : uint16_t {
+    unset_type          = 0,
     client_socket       = 1,
     server_socket       = 2,
     blocking_socket     = 4,

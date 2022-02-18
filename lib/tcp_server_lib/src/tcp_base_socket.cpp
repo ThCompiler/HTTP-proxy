@@ -231,30 +231,35 @@ uint16_t BaseSocket::get_port() const {
 }
 
 BaseSocket &BaseSocket::operator=(BaseSocket &&sok) noexcept {
-    _status = sok._status;
-    _socket = sok._socket;
-    _address = sok._address;
+    _status     = sok._status;
+    _socket     = sok._socket;
+    _type       = sok._type;
+    _address    = sok._address;
+
 #ifdef _WIN32
-    sok._socket = INVALID_SOCKET;
+    sok._socket     = INVALID_SOCKET;
 #else
-    sok._socket = -1;
+    sok._socket     = -1;
 #endif
-    sok._status = status::disconnected;
-    sok._address = socket_addr_in();
+    sok._status     = status::disconnected;
+    sok._address    = socket_addr_in();
+    sok._type       = (uint16_t)SocketType::unset_type;
     return *this;
 }
 
 BaseSocket::BaseSocket(BaseSocket &&sok) noexcept
-        : _status(sok._status)
-          , _socket(sok._socket)
+        : _status   (sok._status)
+          , _type   (sok._type)
+          , _socket (sok._socket)
           , _address(sok._address) {
 #ifdef _WIN32
-    sok._socket = INVALID_SOCKET;
+    sok._socket     = INVALID_SOCKET;
 #else
-    sok._socket = -1;
+    sok._socket     = -1;
 #endif
-    sok._status = status::disconnected;
-    sok._address = socket_addr_in();
+    sok._status     = status::disconnected;
+    sok._address    = socket_addr_in();
+    sok._type       = (uint16_t)SocketType::unset_type;
 }
 
 bool BaseSocket::is_allow_to_read(long timeout) const {
@@ -344,4 +349,20 @@ bool BaseSocket::is_allow_to_rwrite(long timeout) const {
     } else {
         return false;
     }
+}
+
+socket_t BaseSocket::get_socket() {
+    return _socket;
+}
+
+socket_addr_in BaseSocket::get_address() const {
+    return _address;
+}
+
+status BaseSocket::get_status() const {
+    return _status;
+}
+
+SocketType BaseSocket::get_type() const {
+    return (SocketType)_type;
 }

@@ -6,6 +6,8 @@
 #include <thread>
 #include <mutex>
 #include <shared_mutex>
+#include <type_traits>
+#include <concepts>
 
 #ifdef _WIN32 // Windows NT
 
@@ -35,8 +37,54 @@ struct KeepAliveConfig {
     ka_prop_t ka_cnt = 5;
 };
 
-struct TcpServer {
-    struct Client;
+class IServerClient: public ISocket {
+public:
+    virtual void handle_request() = 0;
+
+    ~IServerClient() override = default;
+};
+
+template<typename T>
+concept socket_type =   (std::is_base_of_v<ISocket, T>
+                        || std::is_convertible_v<T, ISocket>)
+                        && std::is_move_assignable_v<T>;
+
+template<typename T, class Socket = BaseSocket>
+concept server_client = std::is_constructible<T, Socket&&>::value
+                        && std::is_destructible_v<T>
+                        && (std::is_base_of_v<IServerClient, T>
+                        || std::is_convertible_v<T, IServerClient>)
+                        && std::is_move_constructible_v<T>;
+
+template<socket_type Socket, server_client<Socket> T>
+class TcpServer {
+public:
+    struct Client : public T {
+    public:
+        Client() = delete;
+
+        explicit Client(Socket&& socket)
+                : T(std::move(socket))
+                , _in_use(false) {}
+
+        Client(const Client&) = delete;
+        Client operator=(const Client&) = delete;
+
+        Client(Client&& clt) noexcept
+                : T(std::move(clt))
+                , _in_use(false)
+                , _access_mtx() {}
+
+        Client& operator=(const Client&&) = delete;
+
+        ~Client() override = default;
+
+    private:
+        friend class TcpServer;
+
+        bool        _in_use;
+        std::mutex  _access_mtx;
+    };
 
     enum class ServerStatus : uint8_t {
         up                      = 0,
@@ -47,16 +95,13 @@ struct TcpServer {
         close                   = 5
     };
 
-    typedef std::function<void(uniq_ptr<Client> &)>   _handler_function_t;
-    typedef std::function<void(uniq_ptr<Client> &)>   _con_handler_function_t;
+    typedef std::function<void(uniq_ptr<ISocket> &)>   _con_handler_function_t;
 
-    static constexpr auto _default_data_handler = [](uniq_ptr<Client> &) {};
-    static constexpr auto _default_connsection_handler = [](uniq_ptr<Client> &) {};
+    static constexpr auto _default_connsection_handler  = [](uniq_ptr<ISocket> &) {};
 
   public:
     explicit TcpServer(uint16_t port,
                        KeepAliveConfig ka_conf = {},
-                       _handler_function_t handler = _default_data_handler,
                        _con_handler_function_t connect_hndl = _default_connsection_handler,
                        _con_handler_function_t disconnect_hndl = _default_connsection_handler,
                        size_t thread_count = std::thread::hardware_concurrency()
@@ -64,21 +109,14 @@ struct TcpServer {
 
     ~TcpServer();
 
-    //! Set client handler
-    void set_handler(_handler_function_t hdlr);
-
-    ThreadPool &get_thread_pool() {
-        return _thread_pool;
-    }
+    ThreadPool &get_thread_pool();
 
     // Server properties getters
     [[nodiscard]] uint16_t get_port() const;
 
     uint16_t setPort(uint16_t port);
 
-    [[nodiscard]] ServerStatus get_status() const {
-        return _status;
-    }
+    [[nodiscard]] ServerStatus get_status() const;
 
     // Server status manip
     ServerStatus start();
@@ -100,18 +138,15 @@ struct TcpServer {
     void disconnect_all();
 
   private:
-    ServerStatus    _status  = ServerStatus::close;
-    BaseSocket      _serv_socket;
+    Socket          _serv_socket;
     uint16_t        _port;
     std::mutex      _client_mutex;
     ThreadPool      _thread_pool;
+    ServerStatus    _status  = ServerStatus::close;
     KeepAliveConfig _ka_conf;
 
-    _handler_function_t     _handler            = _default_data_handler;
     _con_handler_function_t _connect_hndl       = _default_connsection_handler;
     _con_handler_function_t _disconnect_hndl    = _default_connsection_handler;
-
-    typedef std::list<std::unique_ptr<Client>>::iterator ClientIterator;
 
     std::list<std::unique_ptr<Client>> _client_list;
 
@@ -120,34 +155,12 @@ struct TcpServer {
     void _handling_accept_loop();
 
     void _waiting_recv_loop();
-
 };
 
-struct TcpServer::Client : public BaseSocket {
-  public:
-    Client() = delete;
 
-    explicit Client(BaseSocket&& socket)
-        : BaseSocket(std::move(socket))
-        , _in_use(false) {}
-
-    Client(const Client&) = delete;
-    Client operator=(const Client&) = delete;
-
-    Client(Client&& clt) noexcept
-        : BaseSocket(std::move(clt))
-        , _in_use(false)
-        , _access_mtx() {}
-
-    Client& operator=(const Client&&) = delete;
-
-    ~Client() override = default;
-
-  private:
-    friend struct TcpServer;
-
-    bool        _in_use;
-    std::mutex  _access_mtx;
-};
+template<server_client<BaseSocket> T>
+using BaseTcpServer = TcpServer<BaseSocket, T>;
 
 }
+
+#include "tcp_server.inl"
