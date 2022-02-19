@@ -13,10 +13,12 @@ TcpServer<Socket, T>::TcpServer(uint16_t port,
                      size_t thread_count
 )
         : _port(port)
-          , _thread_pool(thread_count)
+          , _thread_pool()
           , _ka_conf(ka_conf)
           , _connect_hndl(std::move(connect_hndl))
-          , _disconnect_hndl(std::move(disconnect_hndl)) {}
+          , _disconnect_hndl(std::move(disconnect_hndl)) {
+              _thread_pool.set_max_threads(thread_count);
+          }
 
 template<socket_type Socket, server_client<Socket> T>
 TcpServer<Socket, T>::~TcpServer() {
@@ -31,7 +33,7 @@ uint16_t TcpServer<Socket, T>::get_port() const {
 }
 
 template<socket_type Socket, server_client<Socket> T>
-uint16_t TcpServer<Socket, T>::setPort(uint16_t port) {
+uint16_t TcpServer<Socket, T>::set_port(uint16_t port) {
     _port = port;
     start();
     return port;
@@ -66,15 +68,15 @@ typename bstcp::TcpServer<Socket, T>::ServerStatus TcpServer<Socket, T>::start()
     }
 
     _status = ServerStatus::up;
-    _thread_pool.addJob([this] { _handling_accept_loop(); });
-    _thread_pool.addJob([this] { _waiting_recv_loop(); });
+    _thread_pool.add([this] { _handling_accept_loop(); });
+    _thread_pool.add([this] { _waiting_recv_loop(); });
 
     return _status;
 }
 
 template<socket_type Socket, server_client<Socket> T>
 void TcpServer<Socket, T>::stop() {
-    _thread_pool.dropUnstartedJobs();
+    _thread_pool.wait();
     _status = ServerStatus::close;
 
     _serv_socket.disconnect();
@@ -84,6 +86,7 @@ void TcpServer<Socket, T>::stop() {
 
 template<socket_type Socket, server_client<Socket> T>
 void TcpServer<Socket, T>::joinLoop() {
+    _thread_pool.stop();
     _thread_pool.join();
 }
 
@@ -169,8 +172,9 @@ void TcpServer<Socket, T>::_handling_accept_loop() {
         }
     }
 
-    if (_status == ServerStatus::up)
-        _thread_pool.addJob([this]() { _handling_accept_loop(); });
+    if (_status == ServerStatus::up) {
+        _thread_pool.add([this]() { _handling_accept_loop(); });
+    }
 }
 
 template<socket_type Socket, server_client<Socket> T>
@@ -193,7 +197,7 @@ void TcpServer<Socket, T>::_waiting_recv_loop() {
                         delete pointer;
                         break;
                     } else {
-                        _thread_pool.addJob(
+                        _thread_pool.add(
                             [this, &client] {
                                 client->_access_mtx.lock();
                                 if (client->get_status() != SocketStatus::disconnected) {
@@ -209,7 +213,7 @@ void TcpServer<Socket, T>::_waiting_recv_loop() {
     }
 
     if (_status == ServerStatus::up) {
-        _thread_pool.addJob([this]() { _waiting_recv_loop(); });
+        _thread_pool.add([this]() { _waiting_recv_loop(); });
     }
 }
 
@@ -248,6 +252,6 @@ typename TcpServer<Socket, T>::ServerStatus TcpServer<Socket, T>::get_status() c
 }
 
 template<socket_type Socket, server_client<Socket> T>
-ThreadPool &TcpServer<Socket, T>::get_thread_pool() {
+prll::Parallel &TcpServer<Socket, T>::get_thread_pool() {
     return _thread_pool;
 }

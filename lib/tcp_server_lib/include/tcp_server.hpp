@@ -27,7 +27,7 @@
 #endif
 
 #include "tcp_base_socket.hpp"
-
+#include "parallel.hpp"
 
 namespace bstcp {
 
@@ -109,12 +109,12 @@ public:
 
     ~TcpServer();
 
-    ThreadPool &get_thread_pool();
+    prll::Parallel &get_thread_pool();
 
     // Server properties getters
     [[nodiscard]] uint16_t get_port() const;
 
-    uint16_t setPort(uint16_t port);
+    uint16_t set_port(uint16_t port);
 
     [[nodiscard]] ServerStatus get_status() const;
 
@@ -141,8 +141,8 @@ public:
     Socket          _serv_socket;
     uint16_t        _port;
     std::mutex      _client_mutex;
-    ThreadPool      _thread_pool;
     ServerStatus    _status  = ServerStatus::close;
+    prll::Parallel  _thread_pool;
     KeepAliveConfig _ka_conf;
 
     _con_handler_function_t _connect_hndl       = _default_connsection_handler;
