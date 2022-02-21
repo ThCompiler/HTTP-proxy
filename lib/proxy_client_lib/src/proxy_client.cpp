@@ -10,7 +10,8 @@ const auto https = "https";
 const auto http = "http";
 const std::string https_answer = "HTTP/1.0 200 Connection established\n\n";
 
-const size_t chank_size = 1024;
+const size_t client_chank_size = 1024;
+const size_t server_chank_size = 20000;
 
 using namespace proxy;
 
@@ -38,6 +39,16 @@ static std::string get_protocol(std::string &url) {
     url = url.substr(end + 2, url.size() - end);
     return protocol;
 }
+/*
+static size_t get_content_len(std::string &url) {
+    auto end = url.find('/');
+    if (end == std::string::npos) {
+        return 0;
+    }
+    auto protocol = url.substr(0, end - 1);
+    url = url.substr(end + 2, url.size() - end);
+    return 1;
+}*/
 
 static std::string get_hostname(std::string &url) {
     auto end = url.find('/');
@@ -82,9 +93,9 @@ struct request_t {
 
 }
 
-static std::string read_from_socket(bstcp::ISocket &socket) {
+static std::string read_from_socket(bstcp::ISocket &socket, size_t chank_size) {
     tcp_data_t buffer(chank_size);
-    bool status = socket.recv_from(buffer.data(), chank_size);
+    bool status = socket.recv_from(buffer.data(), (int)chank_size);
     if (!status) {
         return "";
     }
@@ -97,7 +108,9 @@ static std::string read_from_socket(bstcp::ISocket &socket) {
                 std::make_move_iterator(buffer.end())
         );
         auto end = res.find('\0');
-        res = res.substr(0, end);
+        if (end != std::string::npos) {
+            res = res.substr(0, end);
+        }
 
         if(!socket.is_allow_to_read(1000)) {
             break;
@@ -110,10 +123,10 @@ static std::string read_from_socket(bstcp::ISocket &socket) {
     return res;
 }
 
-static bool send_to_socket(bstcp::ISocket &socket, const std::string data) {
+static bool send_to_socket(bstcp::ISocket &socket, const std::string& data, size_t chank_size) {
     bool res = true;
-    for (size_t i = 0; i < data.size() && res; i += chank_size) {
-        res = socket.send_to(data.data() + i, chank_size);
+    for (size_t i = 0; (i < data.size()) && res; i += chank_size) {
+        res = socket.send_to(data.data() + i, (int)std::min(chank_size, data.size() - i));
     }
     return res;
 }
@@ -172,8 +185,9 @@ std::string ProxyClient::_https_request(request_t &request) {
     send_to(https_answer.data(), (int) https_answer.size());
 
     SSLSocket client_socket;
-    client_socket.init(std::move(_socket), false);
-
+    if (client_socket.init(std::move(_socket), false) != bstcp::status::connected) {
+        return "HTTP/1.1 525 SSL Handshake Failed \n Can't connect to client by tls \n\n";
+    }
     TcpSocket to;
     auto res = init_client_socket(request, to);
     if (!res.empty()) {
@@ -181,16 +195,17 @@ std::string ProxyClient::_https_request(request_t &request) {
     }
 
     SSLSocket ssl_socket;
-    ssl_socket.init(std::move(to));
+    if (ssl_socket.init(std::move(to)) != bstcp::status::connected) {
+        return "HTTP/1.1 525 SSL Handshake Failed \n Can't connect to server by tls \n\n";
+    }
 
-    auto message = read_from_socket(client_socket);
-
+    auto message = read_from_socket(client_socket, client_chank_size);
 
     ssl_socket.send_to(message.data(), message.size());
     message.clear();
 
-    auto answ = read_from_socket(ssl_socket);
-    send_to_socket(client_socket, answ);
+    auto answ = read_from_socket(ssl_socket, server_chank_size);
+    send_to_socket(client_socket, answ, client_chank_size);
     _socket = client_socket.release();
     return "";
 }
@@ -202,21 +217,21 @@ std::string ProxyClient::_http_request(request_t &request) {
         return res;
     }
 
-    send_to_socket(to, request.data);
+    send_to_socket(to, request.data, client_chank_size);
     request.data.clear();
 
     if (!to.is_allow_to_read(2000)) {
         return "HTTP/1.1 408 Request Timeout  \n 2s time out \n\n";
     }
 
-    auto answ = read_from_socket(to);
-    send_to_socket(*this, answ);
+    auto answ = read_from_socket(to, server_chank_size);
+    send_to_socket(*this, answ, client_chank_size);
     return "";
 }
 
 
 void ProxyClient::handle_request() {
-    std::string data = read_from_socket(*this);
+    std::string data = read_from_socket(*this, client_chank_size);
     if (data.empty()) {
         return;
     }
@@ -225,8 +240,8 @@ void ProxyClient::handle_request() {
               << " bytes ]: \n" << (char *) data.data() << '\n';
     auto res = _parse_request(data);
 
-    if (res != "") {
-        send_to_socket(*this, res);
+    if (!res.empty()) {
+        send_to_socket(*this, res, client_chank_size);
     }
     disconnect();
 }

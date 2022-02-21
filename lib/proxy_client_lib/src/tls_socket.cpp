@@ -151,7 +151,7 @@ X509 *generate_cert(EVP_PKEY *pkey) {
     X509_set_pubkey(x509, pkey);
 
     X509_NAME *name = X509_get_subject_name(x509);
-    X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, (const unsigned char*)"CH", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, (const unsigned char*)"RUS", -1, -1, 0);
     X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (const unsigned char*)"http-proxy", -1, -1, 0);
     X509_set_issuer_name(x509, name);
     X509_sign(x509, pkey, EVP_sha3_512());
@@ -179,7 +179,6 @@ SSL_CTX *SSLSocket::_init_ssl(bool client) {
 
         EVP_PKEY *pkey = generate_pk();
         X509 *x509 = generate_cert(pkey);
-
         SSL_CTX_use_certificate(ctx, x509);
         SSL_CTX_set_default_passwd_cb(ctx, password_cb);
         SSL_CTX_use_PrivateKey(ctx, pkey);
