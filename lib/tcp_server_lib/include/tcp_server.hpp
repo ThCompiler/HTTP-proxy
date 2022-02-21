@@ -129,7 +129,7 @@ public:
     bool connect_to(uint32_t host, uint16_t port,
                    const _con_handler_function_t& connect_hndl);
 
-    void send_to(const void *buffer, size_t size);
+    void send_to(const void *buffer, int size);
 
     bool send_to_by(uint32_t host, uint16_t port, const void *buffer, size_t size);
 

@@ -1,0 +1,138 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2
+					],
+					"jsonFile" : "directory-.-Release-d0094a50bb2071803777.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.1X"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0
+					]
+				},
+				{
+					"build" : "lib/tcp_server_lib",
+					"jsonFile" : "directory-lib.tcp_server_lib-Release-d68dcf83d87ef8677f8f.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.1x"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 1,
+					"source" : "lib/tcp_server_lib",
+					"targetIndexes" : 
+					[
+						2
+					]
+				},
+				{
+					"build" : "lib/proxy_client_lib",
+					"jsonFile" : "directory-lib.proxy_client_lib-Release-6230846e4686354a09e1.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.1x"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 2,
+					"source" : "lib/proxy_client_lib",
+					"targetIndexes" : 
+					[
+						1
+					]
+				}
+			],
+			"name" : "Release",
+			"projects" : 
+			[
+				{
+					"childIndexes" : 
+					[
+						1,
+						2
+					],
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "http-proxy",
+					"targetIndexes" : 
+					[
+						0
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						1
+					],
+					"name" : "tcp_server_lib",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						2
+					]
+				},
+				{
+					"directoryIndexes" : 
+					[
+						2
+					],
+					"name" : "proxy_client_lib",
+					"parentIndex" : 0,
+					"targetIndexes" : 
+					[
+						1
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "http-proxy::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-http-proxy-Release-a93b25b66ba594296d6f.json",
+					"name" : "http-proxy",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "proxy_client_lib::@ee58a84c39bd835dfe11",
+					"jsonFile" : "target-proxy_client_lib-Release-e6f7078dc0dcbff9067c.json",
+					"name" : "proxy_client_lib",
+					"projectIndex" : 2
+				},
+				{
+					"directoryIndex" : 1,
+					"id" : "tcp_server_lib::@7ca3d00831b2fcb7f8f1",
+					"jsonFile" : "target-tcp_server_lib-Release-66ad11403dbedab47b37.json",
+					"name" : "tcp_server_lib",
+					"projectIndex" : 1
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "C:/Users/vet_v/Desktop/TP/HTTP-proxy/cmake-build-release",
+		"source" : "C:/Users/vet_v/Desktop/TP/HTTP-proxy"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 3
+	}
+}

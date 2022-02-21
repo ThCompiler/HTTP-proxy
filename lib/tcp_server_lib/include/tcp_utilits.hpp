@@ -179,7 +179,7 @@ class ISendable {
   public:
     virtual ~ISendable() = default;
 
-    virtual bool send_to(const void *buffer, size_t size) const = 0;
+    virtual bool send_to(const void *buffer, int size) const = 0;
 };
 
 class ISendRecvable : public IReceivable, ISendable {

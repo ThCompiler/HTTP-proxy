@@ -40,11 +40,11 @@ class BaseSocket : public ISocket {
 
     [[nodiscard]] status get_status() const override;
 
-    status disconnect() final;
+    status disconnect() override;
 
     bool recv_from(void *buffer, int size) override;
 
-    bool send_to(const void *buffer, size_t size) const override;
+    bool send_to(const void *buffer, int size) const override;
 
     [[nodiscard]] SocketType get_type() const override;
 
@@ -64,11 +64,13 @@ class BaseSocket : public ISocket {
 
     status _init_as_server(uint32_t host, uint16_t port, uint16_t type);
 
+  protected:
 
     status          _status;
     uint16_t        _type;
     socket_t        _socket;
     socket_addr_in  _address;
+
 };
 
 }

@@ -86,7 +86,6 @@ void TcpServer<Socket, T>::stop() {
 
 template<socket_type Socket, server_client<Socket> T>
 void TcpServer<Socket, T>::joinLoop() {
-    _thread_pool.stop();
     _thread_pool.join();
 }
 
@@ -116,7 +115,7 @@ bool TcpServer<Socket, T>::connect_to(uint32_t host, uint16_t port,
 }
 
 template<socket_type Socket, server_client<Socket> T>
-void TcpServer<Socket, T>::send_to(const void *buffer, const size_t size) {
+void TcpServer<Socket, T>::send_to(const void *buffer, int size) {
     for (std::unique_ptr<Client> &client: _client_list) {
         client->send_to(buffer, size);
     }
@@ -157,7 +156,7 @@ void TcpServer<Socket, T>::disconnect_all() {
 
 template<socket_type Socket, server_client<Socket> T>
 void TcpServer<Socket, T>::_handling_accept_loop() {
-    BaseSocket client_socket;
+    Socket client_socket;
     if (client_socket.accept(_serv_socket) == status::connected
         && _status == ServerStatus::up) {
 

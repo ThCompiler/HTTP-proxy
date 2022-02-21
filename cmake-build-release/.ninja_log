@@ -1,0 +1,16 @@
+# ninja log v5
+84	6194	6671457186799009	lib/tcp_server_lib/CMakeFiles/tcp_server_lib.dir/src/parallel.cpp.obj	9e389542a60c55ad
+17	10105	6671457226346117	CMakeFiles/http-proxy.dir/lib/tcp_server_lib/src/tcp_utilits.cpp.obj	f2ea87f312a1561e
+29	10300	6671457227846064	lib/tcp_server_lib/CMakeFiles/tcp_server_lib.dir/src/tcp_sever_client.cpp.obj	ade4142b9759fc3
+118	10908	6671457234466085	lib/tcp_server_lib/CMakeFiles/tcp_server_lib.dir/src/tcp_utilits.cpp.obj	43e73c9f1ce4a27e
+44	11295	6671457238006083	lib/tcp_server_lib/CMakeFiles/tcp_server_lib.dir/src/tcp_base_socket.cpp.obj	dd86eb0ebe942afe
+11296	11776	6671457243164113	lib/tcp_server_lib/libtcp_server_lib.a	c0640418a01c2f1f
+197	11929	6671457244612770	lib/proxy_client_lib/CMakeFiles/proxy_client_lib.dir/src/tls_socket.cpp.obj	be1eb865b0138750
+153	21555	6671457340826247	lib/proxy_client_lib/CMakeFiles/proxy_client_lib.dir/src/proxy_client.cpp.obj	45240d60b32805e7
+19	3809	6671457382588777	lib/proxy_client_lib/CMakeFiles/proxy_client_lib.dir/src/tls_socket.cpp.obj	be1eb865b0138750
+3810	4059	6671457385117550	lib/proxy_client_lib/libproxy_client_lib.a	248045df642867af
+24	5501	6671457969627277	CMakeFiles/http-proxy.dir/lib/tcp_server_lib/src/tcp_utilits.cpp.obj	f2ea87f312a1561e
+38	5509	6671457969727277	lib/tcp_server_lib/CMakeFiles/tcp_server_lib.dir/src/tcp_sever_client.cpp.obj	ade4142b9759fc3
+68	5779	6671457972010023	lib/tcp_server_lib/CMakeFiles/tcp_server_lib.dir/src/tcp_utilits.cpp.obj	43e73c9f1ce4a27e
+99	5944	6671457974100031	lib/proxy_client_lib/CMakeFiles/proxy_client_lib.dir/src/tls_socket.cpp.obj	be1eb865b0138750
+135	14056	6671458055090041	lib/proxy_client_lib/CMakeFiles/proxy_client_lib.dir/src/proxy_client.cpp.obj	45240d60b32805e7

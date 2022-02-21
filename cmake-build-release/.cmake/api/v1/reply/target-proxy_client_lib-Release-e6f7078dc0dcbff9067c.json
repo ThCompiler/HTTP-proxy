@@ -1,0 +1,175 @@
+{
+	"archive" : {},
+	"artifacts" : 
+	[
+		{
+			"path" : "lib/proxy_client_lib/libproxy_client_lib.a"
+		}
+	],
+	"backtrace" : 2,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"connect_lib",
+			"target_include_directories",
+			"target_link_libraries"
+		],
+		"files" : 
+		[
+			"cmake-utilits/templates.cmake",
+			"lib/proxy_client_lib/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 1
+			},
+			{
+				"command" : 1,
+				"file" : 1,
+				"line" : 6,
+				"parent" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 10,
+				"parent" : 1
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 12,
+				"parent" : 1
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 17,
+				"parent" : 1
+			},
+			{
+				"command" : 3,
+				"file" : 1,
+				"line" : 9,
+				"parent" : 0
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "-Wall -Wpedantic -Werror -Wextra -ggdb3 -O3 -DNDEBUG"
+				},
+				{
+					"fragment" : "-std=gnu++20"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 3,
+					"path" : "C:/Users/vet_v/Desktop/TP/HTTP-proxy/lib/proxy_client_lib/include"
+				},
+				{
+					"backtrace" : 4,
+					"path" : "C:/Users/vet_v/Desktop/TP/HTTP-proxy/lib/proxy_client_lib"
+				},
+				{
+					"backtrace" : 0,
+					"path" : "C:/Users/vet_v/Desktop/TP/HTTP-proxy/lib/tcp_server_lib"
+				},
+				{
+					"backtrace" : 5,
+					"isSystem" : true,
+					"path" : "D:/anaconda/Library/include"
+				}
+			],
+			"language" : "CXX",
+			"languageStandard" : 
+			{
+				"backtraces" : 
+				[
+					2
+				],
+				"standard" : "20"
+			},
+			"sourceIndexes" : 
+			[
+				3,
+				4
+			]
+		}
+	],
+	"dependencies" : 
+	[
+		{
+			"backtrace" : 0,
+			"id" : "tcp_server_lib::@7ca3d00831b2fcb7f8f1"
+		}
+	],
+	"id" : "proxy_client_lib::@ee58a84c39bd835dfe11",
+	"name" : "proxy_client_lib",
+	"nameOnDisk" : "libproxy_client_lib.a",
+	"paths" : 
+	{
+		"build" : "lib/proxy_client_lib",
+		"source" : "lib/proxy_client_lib"
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Header Files",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2
+			]
+		},
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				3,
+				4
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 2,
+			"path" : "lib/proxy_client_lib/include/proxy_client.hpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 2,
+			"path" : "lib/proxy_client_lib/include/tcp_socket.hpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 2,
+			"path" : "lib/proxy_client_lib/include/tls_socket.hpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 2,
+			"compileGroupIndex" : 0,
+			"path" : "lib/proxy_client_lib/src/proxy_client.cpp",
+			"sourceGroupIndex" : 1
+		},
+		{
+			"backtrace" : 2,
+			"compileGroupIndex" : 0,
+			"path" : "lib/proxy_client_lib/src/tls_socket.cpp",
+			"sourceGroupIndex" : 1
+		}
+	],
+	"type" : "STATIC_LIBRARY"
+}

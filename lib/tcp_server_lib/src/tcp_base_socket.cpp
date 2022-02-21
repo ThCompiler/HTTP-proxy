@@ -5,7 +5,24 @@ using namespace bstcp;
 #include <iostream>
 
 BaseSocket::~BaseSocket() {
-    disconnect();
+    _status = status::disconnected;
+#ifdef _WIN32
+    if (_socket == INVALID_SOCKET) {
+#else
+        if (_socket == -1) {
+#endif
+        return;
+    }
+
+    shutdown(_socket, SD_BOTH);
+
+#ifdef _WIN32
+    closesocket(_socket);
+    _socket = INVALID_SOCKET;
+#else
+    close(_socket);
+    _socket = -1;
+#endif
 }
 
 status BaseSocket::init(uint32_t host, uint16_t port, uint16_t type) {
@@ -183,7 +200,7 @@ bool BaseSocket::recv_from(void *buffer, int size) {
     return true;
 }
 
-bool BaseSocket::send_to(const void *buffer, size_t size) const {
+bool BaseSocket::send_to(const void *buffer, int size) const {
     if (_status != SocketStatus::connected) {
         return false;
     }
@@ -263,7 +280,7 @@ BaseSocket::BaseSocket(BaseSocket &&sok) noexcept
 }
 
 bool BaseSocket::is_allow_to_read(long timeout) const {
-    if (_status == status::disconnected) {
+    if (_status != status::connected) {
         return false;
     }
 
@@ -292,7 +309,7 @@ bool BaseSocket::is_allow_to_read(long timeout) const {
 }
 
 bool BaseSocket::is_allow_to_write(long timeout) const {
-    if (_status == status::disconnected) {
+    if (_status != status::connected) {
         return false;
     }
 
@@ -321,7 +338,7 @@ bool BaseSocket::is_allow_to_write(long timeout) const {
 }
 
 bool BaseSocket::is_allow_to_rwrite(long timeout) const {
-    if (_status == status::disconnected) {
+    if (_status != status::connected) {
         return false;
     }
 

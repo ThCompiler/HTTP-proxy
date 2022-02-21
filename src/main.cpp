@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     }
 
     try {
-        BaseTcpServer<proxy::ProxyClient> server(http_port,
+        TcpServer<proxy::TcpSocket, proxy::ProxyClient> server(http_port,
                          {1, 1, 1}, // Keep alive{idle:1s, interval: 1s, pk_count: 1}
 
                          [](uniq_ptr<ISocket> &client) { // Connect handler
@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
         );
 
         //Start server
-        if (server.start() == BaseTcpServer<proxy::ProxyClient>::ServerStatus::up) {
+        if (server.start() == TcpServer<proxy::TcpSocket, proxy::ProxyClient>::ServerStatus::up) {
             std::cout << "Server listen on port: " << server.get_port() << std::endl
                       << "Server handling thread pool size: " << server.get_thread_pool().get_count_threads() << std::endl;
             server.joinLoop();

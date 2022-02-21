@@ -1,0 +1,9 @@
+C:/Users/vet_v/Desktop/TP/HTTP-proxy/cmake-build-release/CMakeFiles/edit_cache.dir
+C:/Users/vet_v/Desktop/TP/HTTP-proxy/cmake-build-release/CMakeFiles/http-proxy.dir
+C:/Users/vet_v/Desktop/TP/HTTP-proxy/cmake-build-release/CMakeFiles/rebuild_cache.dir
+C:/Users/vet_v/Desktop/TP/HTTP-proxy/cmake-build-release/lib/tcp_server_lib/CMakeFiles/tcp_server_lib.dir
+C:/Users/vet_v/Desktop/TP/HTTP-proxy/cmake-build-release/lib/tcp_server_lib/CMakeFiles/edit_cache.dir
+C:/Users/vet_v/Desktop/TP/HTTP-proxy/cmake-build-release/lib/tcp_server_lib/CMakeFiles/rebuild_cache.dir
+C:/Users/vet_v/Desktop/TP/HTTP-proxy/cmake-build-release/lib/proxy_client_lib/CMakeFiles/proxy_client_lib.dir
+C:/Users/vet_v/Desktop/TP/HTTP-proxy/cmake-build-release/lib/proxy_client_lib/CMakeFiles/edit_cache.dir
+C:/Users/vet_v/Desktop/TP/HTTP-proxy/cmake-build-release/lib/proxy_client_lib/CMakeFiles/rebuild_cache.dir

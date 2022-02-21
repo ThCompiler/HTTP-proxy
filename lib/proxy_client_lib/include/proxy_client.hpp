@@ -3,14 +3,17 @@
 #include <ostream>
 
 #include "tcp_server_lib.hpp"
+#include "tcp_socket.hpp"
 
 namespace proxy {
 
+struct request_t;
+
 struct ProxyClient : public bstcp::IServerClient {
-public:
+  public:
     ProxyClient() = delete;
 
-    explicit ProxyClient(bstcp::BaseSocket&& socket)
+    explicit ProxyClient(TcpSocket&& socket)
             : _socket(std::move(socket)) {}
 
     ProxyClient(const ProxyClient&) = delete;
@@ -35,7 +38,7 @@ public:
 
     bool recv_from(void *buffer, int size) override;
 
-    bool send_to(const void *buffer, size_t size) const override;
+    bool send_to(const void *buffer, int size) const override;
 
     [[nodiscard]] SocketType get_type() const override;
 
@@ -43,9 +46,15 @@ public:
 
     [[nodiscard]] socket_addr_in get_address() const;
 
-    private:
+  private:
 
-    bstcp::BaseSocket   _socket;
+    std::string _parse_request(std::string &data);
+
+    std::string _http_request(request_t& request);
+
+    std::string _https_request(request_t& request);
+
+    TcpSocket   _socket;
 };
 
 }
