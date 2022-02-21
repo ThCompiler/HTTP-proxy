@@ -10,8 +10,11 @@ const auto https = "https";
 const auto http = "http";
 const std::string https_answer = "HTTP/1.0 200 Connection established\n\n";
 
+const size_t chank_size = 1024;
 
 using namespace proxy;
+
+bool SSLSocket::is_init = false;
 
 static const std::regex url_r(
         R"((((https|http)?:\/\/)||())(?:www\.)?([-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b)+(\/[\/\d\w\.-]*)*(?:[\?])*([-a-zA-Z0-9@:%._\/+~#=]+)*)");
@@ -58,29 +61,30 @@ static std::string get_method(const std::string &request) {
 
 namespace proxy {
 
-    struct request_t {
-        int             port;
-        std::string     hostname;
-        std::string     method;
-        std::string     url;
-        std::string&    data;
-        std::string     protocol;
+struct request_t {
+    int port;
+    std::string hostname;
+    std::string method;
+    std::string url;
+    std::string &data;
+    std::string protocol;
 
-        request_t(std::string &&url_, std::string &data_)
-                : url(url_), data(data_) {
-            method = get_method(data);
-            protocol = method == https_method ? https : get_protocol(url);
-            hostname = get_hostname(url);
-            port = get_port(hostname);
-            data = std::regex_replace(data, url_r, url, std::regex_constants::format_first_only);
-        }
-    };
+    request_t(std::string &&url_, std::string &data_)
+            : url(url_), data(data_) {
+        method = get_method(data);
+        protocol = method == https_method ? https : get_protocol(url);
+        hostname = get_hostname(url);
+        port = get_port(hostname);
+        data = std::regex_replace(data, url_r, url,
+                                  std::regex_constants::format_first_only);
+    }
+};
 
 }
 
 static std::string read_from_socket(bstcp::ISocket &socket) {
-    tcp_data_t buffer(1024);
-    bool status = socket.recv_from(buffer.data(), 1024);
+    tcp_data_t buffer(chank_size);
+    bool status = socket.recv_from(buffer.data(), chank_size);
     if (!status) {
         return "";
     }
@@ -92,27 +96,43 @@ static std::string read_from_socket(bstcp::ISocket &socket) {
                 std::make_move_iterator(buffer.begin()),
                 std::make_move_iterator(buffer.end())
         );
-        status = socket.recv_from(buffer.data(), 1024);
+        auto end = res.find('\0');
+        res = res.substr(0, end);
+
+        if(!socket.is_allow_to_read(1000)) {
+            break;
+        }
+
+        buffer = tcp_data_t(chank_size);
+        status = socket.recv_from(buffer.data(), chank_size);
     }
 
-    auto end = res.find('\0');
-    res = res.substr(0, end);
     return res;
 }
 
-static std::string init_client_socket(request_t& request, TcpSocket& socket) {
+static bool send_to_socket(bstcp::ISocket &socket, const std::string data) {
+    bool res = true;
+    for (size_t i = 0; i < data.size() && res; i += chank_size) {
+        res = socket.send_to(data.data() + i, chank_size);
+    }
+    return res;
+}
+
+static std::string init_client_socket(request_t &request, TcpSocket &socket) {
     socket_addr_in adr;
     if (bstcp::hostname_to_ip(request.hostname.c_str(), &adr) == -1) {
-        return "HTTP/1.1 523 Origin Is Unreachable \n Can't resolve hostname " + request.hostname +  "\n\n";
+        return "HTTP/1.1 523 Origin Is Unreachable \n Can't resolve hostname " +
+               request.hostname + "\n\n";
     }
 
 #ifdef _WIN32
     if (socket.init((uint32_t) adr.sin_addr.S_un.S_addr, request.port,
 #else
-            if (socket.init((uint32_t) adr.sin_addr.s_addr, request.port,
+    if (socket.init((uint32_t) adr.sin_addr.s_addr, request.port,
 #endif
-                (uint16_t) SocketType::nonblocking_socket
-                | (uint16_t) SocketType::client_socket) != SocketStatus::connected) {
+                    (uint16_t) SocketType::blocking_socket
+                    | (uint16_t) SocketType::client_socket) !=
+        SocketStatus::connected) {
         return "HTTP/1.1 503 Service Unavailable \n Can't connect to host \n\n";
     }
     return "";
@@ -123,13 +143,16 @@ std::string ProxyClient::_parse_request(std::string &data) {
     if (regex_search(data, m, url_r)) {
         auto url = m[0].str();
 
-        const std::regex proxy_header(R"((\r\n|\n)(Proxy-Connection[A-z: .-]+))");
-        data = std::regex_replace(data, proxy_header, "", std::regex_constants::format_first_only);
+        const std::regex proxy_header(
+                R"((\r\n|\n)(Proxy-Connection[A-z: .-]+))");
+        data = std::regex_replace(data, proxy_header, "",
+                                  std::regex_constants::format_first_only);
 
         request_t request(std::move(url), data);
 
-        std::cout << "Connect to client" + request.protocol + "://" + request.hostname + ":"
-        << request.port << std::endl;
+        std::cout << "Connect to client" + request.protocol + "://" +
+                     request.hostname + ":"
+                  << request.port << std::endl;
 
         if (request.protocol == http) {
             return _http_request(request);
@@ -139,13 +162,17 @@ std::string ProxyClient::_parse_request(std::string &data) {
             return _https_request(request);
         }
 
-        return "HTTP/1.1 404 Not found \n Unknown protocol " + request.protocol + "\n\n";
+        return "HTTP/1.1 404 Not found \n Unknown protocol " +
+               request.protocol + "\n\n";
     }
     return {};
 }
 
-std::string ProxyClient::_https_request(request_t& request) {
-    send_to(https_answer.data(), (int)https_answer.size());
+std::string ProxyClient::_https_request(request_t &request) {
+    send_to(https_answer.data(), (int) https_answer.size());
+
+    SSLSocket client_socket;
+    client_socket.init(std::move(_socket), false);
 
     TcpSocket to;
     auto res = init_client_socket(request, to);
@@ -156,42 +183,51 @@ std::string ProxyClient::_https_request(request_t& request) {
     SSLSocket ssl_socket;
     ssl_socket.init(std::move(to));
 
-    auto message = read_from_socket(*this);
+    auto message = read_from_socket(client_socket);
+
 
     ssl_socket.send_to(message.data(), message.size());
     message.clear();
 
-    return read_from_socket(ssl_socket);
+    auto answ = read_from_socket(ssl_socket);
+    send_to_socket(client_socket, answ);
+    _socket = client_socket.release();
+    return "";
 }
 
-std::string ProxyClient::_http_request(request_t& request) {
+std::string ProxyClient::_http_request(request_t &request) {
     TcpSocket to;
     auto res = init_client_socket(request, to);
     if (!res.empty()) {
         return res;
     }
 
-    to.send_to(request.data.data(), request.data.size());
+    send_to_socket(to, request.data);
     request.data.clear();
 
     if (!to.is_allow_to_read(2000)) {
         return "HTTP/1.1 408 Request Timeout  \n 2s time out \n\n";
     }
 
-    return read_from_socket(to);
+    auto answ = read_from_socket(to);
+    send_to_socket(*this, answ);
+    return "";
 }
 
 
 void ProxyClient::handle_request() {
     std::string data = read_from_socket(*this);
-    if (data == "") {
+    if (data.empty()) {
         return;
     }
 
     std::cout << "Client " << " send data [ " << data.size()
               << " bytes ]: \n" << (char *) data.data() << '\n';
     auto res = _parse_request(data);
-    send_to(res.data(), res.size());
+
+    if (res != "") {
+        send_to_socket(*this, res);
+    }
     disconnect();
 }
 
@@ -229,4 +265,16 @@ socket_t ProxyClient::get_socket() {
 
 socket_addr_in ProxyClient::get_address() const {
     return _socket.get_address();
+}
+
+bool ProxyClient::is_allow_to_write(long timeout) const {
+    return _socket.is_allow_to_write(timeout);
+}
+
+bool ProxyClient::is_allow_to_rwrite(long timeout) const {
+    return _socket.is_allow_to_rwrite(timeout);
+}
+
+bool ProxyClient::is_allow_to_read(long timeout) const {
+    return _socket.is_allow_to_read(timeout);
 }

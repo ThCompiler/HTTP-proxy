@@ -10,21 +10,22 @@ class TcpSocket : public bstcp::BaseSocket {
   public:
 
     TcpSocket()
-        : BaseSocket() {}
+            : BaseSocket() {}
 
-    TcpSocket(const TcpSocket&) = delete;
-    TcpSocket operator=(const TcpSocket&) = delete;
+    TcpSocket(const TcpSocket &) = delete;
 
-    TcpSocket(TcpSocket&& sok) noexcept
-        : BaseSocket(std::move(sok)) {}
+    TcpSocket operator=(const TcpSocket &) = delete;
 
-    TcpSocket& operator=(TcpSocket&&) noexcept = default;
+    TcpSocket(TcpSocket &&sok) noexcept
+            : BaseSocket(std::move(sok)) {}
 
-    ~TcpSocket() override  {
+    TcpSocket &operator=(TcpSocket &&) noexcept = default;
+
+    ~TcpSocket() override {
         BaseSocket::~BaseSocket();
     }
 
-private:
+  private:
     friend class SSLSocket;
 };
 

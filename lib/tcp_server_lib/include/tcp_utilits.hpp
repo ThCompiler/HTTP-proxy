@@ -182,7 +182,7 @@ class ISendable {
     virtual bool send_to(const void *buffer, int size) const = 0;
 };
 
-class ISendRecvable : public IReceivable, ISendable {
+class ISendRecvable : public IReceivable, public ISendable {
   public:
     ~ISendRecvable() override = default;
 };
@@ -194,7 +194,7 @@ class IDisconnectable {
     virtual status disconnect() = 0;
 };
 
-class ISocket : public ISendRecvable, IDisconnectable {
+class ISocket : public ISendRecvable, public IDisconnectable {
   public:
     ~ISocket() override = default;
 
@@ -205,6 +205,12 @@ class ISocket : public ISendRecvable, IDisconnectable {
     [[nodiscard]] virtual uint16_t get_port() const = 0;
 
     [[nodiscard]] virtual SocketType get_type() const = 0;
+
+    [[nodiscard]] virtual bool is_allow_to_read(long timeout) const = 0;
+
+    [[nodiscard]] virtual bool is_allow_to_write(long timeout) const = 0;
+
+    [[nodiscard]] virtual  bool is_allow_to_rwrite(long timeout) const = 0;
 };
 
 #ifdef _WIN32 // Windows NT

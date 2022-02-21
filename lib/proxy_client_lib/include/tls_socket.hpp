@@ -11,19 +11,20 @@ class SSLSocket : public TcpSocket {
   public:
 
     SSLSocket()
-        : TcpSocket()
-        , _ssl_socket(nullptr)
-        , _cert(nullptr)
-        , _ssl_status(bstcp::status::disconnected) {}
+            : TcpSocket()
+              , _ssl_socket(nullptr)
+              , _cert(nullptr)
+              , _ssl_status(bstcp::status::disconnected) {}
 
-    SSLSocket(const SSLSocket&) = delete;
-    SSLSocket operator=(const SSLSocket&) = delete;
+    SSLSocket(const SSLSocket &) = delete;
 
-    SSLSocket(SSLSocket&& sok) noexcept;
+    SSLSocket operator=(const SSLSocket &) = delete;
 
-    SSLSocket& operator=(SSLSocket&& sok)  noexcept;
+    SSLSocket(SSLSocket &&sok) noexcept;
 
-    bstcp::status init(TcpSocket&& base_socket);
+    SSLSocket &operator=(SSLSocket &&sok) noexcept;
+
+    bstcp::status init(TcpSocket &&base_socket, bool client = true);
 
     ~SSLSocket() override;
 
@@ -36,18 +37,17 @@ class SSLSocket : public TcpSocket {
     TcpSocket release();
 
   private:
-    static SSL_CTX *_init_ssl();
+    static void     _init_ssl_lib();
+    static SSL_CTX *_init_ssl(bool client = true);
 
     void _clear_ssl();
 
     using TcpSocket::accept;
-    using TcpSocket::is_allow_to_write;
-    using TcpSocket::is_allow_to_read;
-    using TcpSocket::is_allow_to_rwrite;
 
+    static bool is_init;
 
-    SSL*            _ssl_socket{};
-    SSL_CTX*        _cert{};
+    SSL *           _ssl_socket{nullptr};
+    SSL_CTX *       _cert{nullptr};
     bstcp::status   _ssl_status;
 };
 

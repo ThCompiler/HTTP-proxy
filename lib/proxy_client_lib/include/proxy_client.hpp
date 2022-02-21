@@ -13,16 +13,17 @@ struct ProxyClient : public bstcp::IServerClient {
   public:
     ProxyClient() = delete;
 
-    explicit ProxyClient(TcpSocket&& socket)
+    explicit ProxyClient(TcpSocket &&socket)
             : _socket(std::move(socket)) {}
 
-    ProxyClient(const ProxyClient&) = delete;
-    ProxyClient operator=(const ProxyClient&) = delete;
+    ProxyClient(const ProxyClient &) = delete;
 
-    ProxyClient(ProxyClient&& clt) noexcept
+    ProxyClient operator=(const ProxyClient &) = delete;
+
+    ProxyClient(ProxyClient &&clt) noexcept
             : _socket(std::move(clt._socket)) {}
 
-    ProxyClient& operator=(const ProxyClient&&) = delete;
+    ProxyClient &operator=(const ProxyClient &&) = delete;
 
     ~ProxyClient() override = default;
 
@@ -46,15 +47,21 @@ struct ProxyClient : public bstcp::IServerClient {
 
     [[nodiscard]] socket_addr_in get_address() const;
 
+    [[nodiscard]] bool is_allow_to_read(long timeout) const override;
+
+    [[nodiscard]] bool is_allow_to_write(long timeout) const override;
+
+    [[nodiscard]] bool is_allow_to_rwrite(long timeout) const override;
+
   private:
 
     std::string _parse_request(std::string &data);
 
-    std::string _http_request(request_t& request);
+    std::string _http_request(request_t &request);
 
-    std::string _https_request(request_t& request);
+    std::string _https_request(request_t &request);
 
-    TcpSocket   _socket;
+    TcpSocket _socket;
 };
 
 }

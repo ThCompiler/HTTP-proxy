@@ -7,88 +7,92 @@
 #include <functional>
 
 namespace prll {
-    #define MAXNTHREADS (size_t)50
-    
-    class Parallel {
-        public:
-            Parallel();
+#define MAXNTHREADS (size_t)50
 
-            template<typename Callable, typename... Args>
-            void add(Callable &&f, Args&&... args) {
-                auto task = std::bind(std::forward<Callable>(f), std::forward<Args>(args)...);
+class Parallel {
+  public:
+    Parallel();
 
-                if(_max_threads == 0) {
-                    task();
-                } else {
-                    std::unique_lock<std::mutex> lck(_task_mutex);
+    template<typename Callable, typename... Args>
+    void add(Callable &&f, Args &&... args) {
+        auto task = std::bind(std::forward<Callable>(f),
+                              std::forward<Args>(args)...);
 
-                    if(_exit) {
-                        return;
-                    }
+        if (_max_threads == 0) {
+            task();
+        } else {
+            std::unique_lock<std::mutex> lck(_task_mutex);
 
-                    _tasks.push(task);
-
-                    lck.unlock();
-                    _in_thread.notify_all();
-                    _in_balance.notify_one();
-                }
+            if (_exit) {
+                return;
             }
 
-            void wait();
+            _tasks.push(task);
 
-            void join();
+            lck.unlock();
+            _in_thread.notify_all();
+            _in_balance.notify_one();
+        }
+    }
 
-            void stop();
+    void wait();
 
-            void set_max_threads(size_t max_threads);
+    void join();
 
-            [[nodiscard]] size_t get_count_threads() const;
+    void stop();
 
-            ~Parallel();
-        private:
+    void set_max_threads(size_t max_threads);
 
-            class Thread {
-                public:
-                    Thread() = delete;
-                    Thread  (std::mutex& thread_mutex
-                            , std::queue<std::function<void()>>& task
-                            , std::condition_variable& threads);
+    [[nodiscard]] size_t get_count_threads() const;
 
-                    Thread(Thread&&) noexcept = delete;
+    ~Parallel();
 
-                    void join();
+  private:
 
-                    void wait();
+    class Thread {
+      public:
+        Thread() = delete;
 
-                    void force_join();
+        Thread(std::mutex &thread_mutex,
+               std::queue<std::function<void()>> &task,
+               std::condition_variable &threads);
 
-                    ~Thread();
-                private:
+        Thread(Thread &&) noexcept = delete;
 
-                    void _main();
+        void join();
 
-                    std::mutex& _task_mutex;
-                    std::condition_variable& _in_thread;
-                    std::queue<std::function<void(void)>>& _tasks;
+        void wait();
 
-                    bool _end;
-                    std::thread _main_thread;
-                    std::condition_variable _wait;
-                    std::atomic<long> _have_proccess;
-            };
+        void force_join();
 
-            void _balance();
+        ~Thread();
 
-            std::mutex _task_mutex;
-            std::condition_variable _in_thread;
-            std::queue<std::function<void(void)>> _tasks;
+      private:
 
-            std::mutex _main_mutex;
-            std::condition_variable _in_balance;
-            std::vector<std::unique_ptr<Thread>> _threads;
-            std::thread _main_thread;
+        void _main();
 
-            bool _exit;
-            size_t _max_threads;
+        std::mutex &_task_mutex;
+        std::condition_variable &_in_thread;
+        std::queue<std::function<void(void)>> &_tasks;
+
+        bool _end;
+        std::thread _main_thread;
+        std::condition_variable _wait;
+        std::atomic<long> _have_proccess;
     };
+
+    void _balance();
+
+    std::mutex _task_mutex;
+    std::condition_variable _in_thread;
+    std::queue<std::function<void(void)>> _tasks;
+
+    std::mutex _main_mutex;
+    std::condition_variable _in_balance;
+    std::vector<std::unique_ptr<Thread>> _threads;
+    std::thread _main_thread;
+
+    bool _exit;
+    size_t _max_threads;
+};
 }

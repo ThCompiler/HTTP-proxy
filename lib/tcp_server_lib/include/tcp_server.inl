@@ -5,42 +5,43 @@
 
 using namespace bstcp;
 
-template<socket_type Socket, server_client<Socket> T>
+SOCKET_TEMPLATE
 TcpServer<Socket, T>::TcpServer(uint16_t port,
-                     KeepAliveConfig ka_conf,
-                     _con_handler_function_t connect_hndl,
-                     _con_handler_function_t disconnect_hndl,
-                     size_t thread_count
+                                KeepAliveConfig ka_conf,
+                                _con_handler_function_t connect_hndl,
+                                _con_handler_function_t disconnect_hndl,
+                                size_t thread_count
 )
         : _port(port)
           , _thread_pool()
           , _ka_conf(ka_conf)
           , _connect_hndl(std::move(connect_hndl))
           , _disconnect_hndl(std::move(disconnect_hndl)) {
-              _thread_pool.set_max_threads(thread_count);
-          }
+    _thread_pool.set_max_threads(thread_count);
+}
 
-template<socket_type Socket, server_client<Socket> T>
+SOCKET_TEMPLATE
 TcpServer<Socket, T>::~TcpServer() {
     if (_status == ServerStatus::up) {
         stop();
     }
 }
 
-template<socket_type Socket, server_client<Socket> T>
+SOCKET_TEMPLATE
 uint16_t TcpServer<Socket, T>::get_port() const {
     return _port;
 }
 
-template<socket_type Socket, server_client<Socket> T>
+SOCKET_TEMPLATE
 uint16_t TcpServer<Socket, T>::set_port(uint16_t port) {
     _port = port;
     start();
     return port;
 }
 
-template<socket_type Socket, server_client<Socket> T>
-typename bstcp::TcpServer<Socket, T>::ServerStatus TcpServer<Socket, T>::start() {
+SOCKET_TEMPLATE
+typename bstcp::TcpServer<Socket, T>::ServerStatus
+TcpServer<Socket, T>::start() {
     if (_status == ServerStatus::up) {
         stop();
     }
@@ -74,7 +75,7 @@ typename bstcp::TcpServer<Socket, T>::ServerStatus TcpServer<Socket, T>::start()
     return _status;
 }
 
-template<socket_type Socket, server_client<Socket> T>
+SOCKET_TEMPLATE
 void TcpServer<Socket, T>::stop() {
     _thread_pool.wait();
     _status = ServerStatus::close;
@@ -84,14 +85,14 @@ void TcpServer<Socket, T>::stop() {
     _client_list.clear();
 }
 
-template<socket_type Socket, server_client<Socket> T>
+SOCKET_TEMPLATE
 void TcpServer<Socket, T>::joinLoop() {
     _thread_pool.join();
 }
 
-template<socket_type Socket, server_client<Socket> T>
+SOCKET_TEMPLATE
 bool TcpServer<Socket, T>::connect_to(uint32_t host, uint16_t port,
-                           const _con_handler_function_t &connect_hndl) {
+                                      const _con_handler_function_t &connect_hndl) {
     BaseSocket client_socket;
     auto sts = client_socket.init(host, port,
                                   (uint16_t) SocketType::nonblocking_socket
@@ -114,16 +115,17 @@ bool TcpServer<Socket, T>::connect_to(uint32_t host, uint16_t port,
     return true;
 }
 
-template<socket_type Socket, server_client<Socket> T>
+SOCKET_TEMPLATE
 void TcpServer<Socket, T>::send_to(const void *buffer, int size) {
     for (std::unique_ptr<Client> &client: _client_list) {
         client->send_to(buffer, size);
     }
 }
 
-template<socket_type Socket, server_client<Socket> T>
-bool TcpServer<Socket, T>::send_to_by(uint32_t host, uint16_t port, const void *buffer,
-                           const size_t size) {
+SOCKET_TEMPLATE
+bool TcpServer<Socket, T>::send_to_by(uint32_t host, uint16_t port,
+                                      const void *buffer,
+                                      const size_t size) {
     bool data_is_sended = false;
 
     for (std::unique_ptr<Client> &client: _client_list)
@@ -136,7 +138,7 @@ bool TcpServer<Socket, T>::send_to_by(uint32_t host, uint16_t port, const void *
     return data_is_sended;
 }
 
-template<socket_type Socket, server_client<Socket> T>
+SOCKET_TEMPLATE
 bool TcpServer<Socket, T>::disconnect_by(uint32_t host, uint16_t port) {
     bool client_is_disconnected = false;
     for (std::unique_ptr<Client> &client: _client_list)
@@ -148,13 +150,13 @@ bool TcpServer<Socket, T>::disconnect_by(uint32_t host, uint16_t port) {
     return client_is_disconnected;
 }
 
-template<socket_type Socket, server_client<Socket> T>
+SOCKET_TEMPLATE
 void TcpServer<Socket, T>::disconnect_all() {
     for (std::unique_ptr<Client> &client: _client_list)
         client->disconnect();
 }
 
-template<socket_type Socket, server_client<Socket> T>
+SOCKET_TEMPLATE
 void TcpServer<Socket, T>::_handling_accept_loop() {
     Socket client_socket;
     if (client_socket.accept(_serv_socket) == status::connected
@@ -176,7 +178,7 @@ void TcpServer<Socket, T>::_handling_accept_loop() {
     }
 }
 
-template<socket_type Socket, server_client<Socket> T>
+SOCKET_TEMPLATE
 void TcpServer<Socket, T>::_waiting_recv_loop() {
     {
         std::lock_guard lock(_client_mutex);
@@ -197,14 +199,15 @@ void TcpServer<Socket, T>::_waiting_recv_loop() {
                         break;
                     } else {
                         _thread_pool.add(
-                            [this, &client] {
-                                client->_access_mtx.lock();
-                                if (client->get_status() != SocketStatus::disconnected) {
-                                    client->handle_request();
-                                }
-                                client->_in_use = false;
-                                client->_access_mtx.unlock();
-                            });
+                                [this, &client] {
+                                    client->_access_mtx.lock();
+                                    if (client->get_status() !=
+                                        SocketStatus::disconnected) {
+                                        client->handle_request();
+                                    }
+                                    client->_in_use = false;
+                                    client->_access_mtx.unlock();
+                                });
                     }
                 }
             }
@@ -216,7 +219,7 @@ void TcpServer<Socket, T>::_waiting_recv_loop() {
     }
 }
 
-template<socket_type Socket, server_client<Socket> T>
+SOCKET_TEMPLATE
 bool TcpServer<Socket, T>::_enable_keep_alive(socket_t socket) {
     int flag = 1;
 #ifdef _WIN32
@@ -245,12 +248,13 @@ bool TcpServer<Socket, T>::_enable_keep_alive(socket_t socket) {
     return true;
 }
 
-template<socket_type Socket, server_client<Socket> T>
-typename TcpServer<Socket, T>::ServerStatus TcpServer<Socket, T>::get_status() const {
+SOCKET_TEMPLATE
+typename TcpServer<Socket, T>::ServerStatus
+TcpServer<Socket, T>::get_status() const {
     return _status;
 }
 
-template<socket_type Socket, server_client<Socket> T>
+SOCKET_TEMPLATE
 prll::Parallel &TcpServer<Socket, T>::get_thread_pool() {
     return _thread_pool;
 }

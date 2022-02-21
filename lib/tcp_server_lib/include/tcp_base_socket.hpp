@@ -52,11 +52,11 @@ class BaseSocket : public ISocket {
 
     [[nodiscard]] socket_addr_in get_address() const;
 
-    [[nodiscard]] bool is_allow_to_read(long timeout) const;
+    [[nodiscard]] bool is_allow_to_read(long timeout) const override;
 
-    [[nodiscard]] bool is_allow_to_write(long timeout) const;
+    [[nodiscard]] bool is_allow_to_write(long timeout) const override;
 
-    [[nodiscard]] bool is_allow_to_rwrite(long timeout) const;
+    [[nodiscard]] bool is_allow_to_rwrite(long timeout) const override;
 
   private:
 

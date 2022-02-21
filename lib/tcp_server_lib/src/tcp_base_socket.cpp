@@ -150,12 +150,12 @@ status BaseSocket::_init_as_server(uint32_t, uint16_t port, uint16_t type) {
         return _status = status::err_socket_listening;
     }
 #else
-    int _type = SOCK_STREAM;
+    int type_ = SOCK_STREAM;
     if (type & (uint16_t)SocketType::nonblocking_socket) {
-        _type |= SOCK_NONBLOCK;
+        type_ |= SOCK_NONBLOCK;
     }
 
-    if ((_socket = socket(AF_INET, _type, 0)) == -1) {
+    if ((_socket = socket(AF_INET, type_, 0)) == -1) {
         return _status = status::err_socket_init;
     }
 
