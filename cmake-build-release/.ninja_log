@@ -14,3 +14,9 @@
 68	5779	6671457972010023	lib/tcp_server_lib/CMakeFiles/tcp_server_lib.dir/src/tcp_utilits.cpp.obj	43e73c9f1ce4a27e
 99	5944	6671457974100031	lib/proxy_client_lib/CMakeFiles/proxy_client_lib.dir/src/tls_socket.cpp.obj	be1eb865b0138750
 135	14056	6671458055090041	lib/proxy_client_lib/CMakeFiles/proxy_client_lib.dir/src/proxy_client.cpp.obj	45240d60b32805e7
+65	4119	6672394160307375	lib/tcp_server_lib/CMakeFiles/tcp_server_lib.dir/src/parallel.cpp.obj	9e389542a60c55ad
+35	5730	6672394176427735	lib/tcp_server_lib/CMakeFiles/tcp_server_lib.dir/src/tcp_sever_client.cpp.obj	ade4142b9759fc3
+52	5895	6672394178087415	lib/tcp_server_lib/CMakeFiles/tcp_server_lib.dir/src/tcp_base_socket.cpp.obj	dd86eb0ebe942afe
+24	5989	6672394179017409	CMakeFiles/http-proxy.dir/lib/tcp_server_lib/src/tcp_utilits.cpp.obj	f2ea87f312a1561e
+78	6018	6672394179337412	lib/tcp_server_lib/CMakeFiles/tcp_server_lib.dir/src/tcp_utilits.cpp.obj	43e73c9f1ce4a27e
+93	14493	6672394263988223	lib/proxy_client_lib/CMakeFiles/proxy_client_lib.dir/src/proxy_client.cpp.obj	45240d60b32805e7

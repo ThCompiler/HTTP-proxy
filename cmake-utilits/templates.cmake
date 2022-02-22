@@ -3,7 +3,7 @@ macro( connect_lib lib_name project_name)
     file(GLOB LIBRARY_HEADERS ${LIBRARY_HEADERS_DIR}/*)
 
     set(LIBRARY_SOURCE_DIR src)
-    file(GLOB LIBRARY_SOURCE ${LIBRARY_SOURCE_DIR}/*.cpp)
+    file(GLOB LIBRARY_SOURCE ${LIBRARY_SOURCE_DIR}/*.*)
 
     project(${project_name})
 

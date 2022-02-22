@@ -6,7 +6,7 @@ set(CMAKE_CXX_FLAGS "-Wall -Wpedantic -Werror -Wextra -ggdb3")
 
 set(PROJECT_NAME http-proxy)
 set(SOURCE_DIR ${CMAKE_SOURCE_DIR}/src)
-set(SOURCE ${SOURCE_DIR}/main.cpp lib/tcp_server_lib/src/tcp_utilits.cpp)
+set(SOURCE ${SOURCE_DIR}/main.cpp lib/proxy_client_lib/include/ssl_cert.hpp lib/proxy_client_lib/src/ssl_cert.cpp)
 set(LIBRARIES_DIR ${CMAKE_SOURCE_DIR}/lib)
 cmake_policy(SET CMP0079 NEW)
 

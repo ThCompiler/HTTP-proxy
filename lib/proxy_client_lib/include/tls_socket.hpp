@@ -37,14 +37,10 @@ class SSLSocket : public TcpSocket {
     TcpSocket release();
 
   private:
-    static void     _init_ssl_lib();
-    static SSL_CTX *_init_ssl(bool client = true);
 
     void _clear_ssl();
 
     using TcpSocket::accept;
-
-    static bool is_init;
 
     SSL *           _ssl_socket{nullptr};
     SSL_CTX *       _cert{nullptr};
