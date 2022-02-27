@@ -1,13 +1,15 @@
 #include "proxy_client.hpp"
 #include "tls_socket.hpp"
 
+#include "request_parser_lib.hpp"
+
 #include <regex>
 #include <iostream>
 
 
 const auto https_method = "CONNECT";
-const auto https = "https";
-const auto http = "http";
+const auto HTTPS = "https";
+const auto HTTP = "http";
 const std::string https_answer = "HTTP/1.0 200 Connection established\n\n";
 
 const size_t client_chank_size = 1024;
@@ -37,6 +39,7 @@ static std::string get_protocol(std::string &url) {
     url = url.substr(end + 2, url.size() - end);
     return protocol;
 }
+
 /*
 static size_t get_content_len(std::string &url) {
     auto end = url.find('/');
@@ -81,7 +84,7 @@ struct request_t {
     request_t(std::string &&url_, std::string &data_)
             : url(url_), data(data_) {
         method = get_method(data);
-        protocol = method == https_method ? https : get_protocol(url);
+        protocol = method == https_method ? HTTPS : get_protocol(url);
         hostname = get_hostname(url);
         port = get_port(hostname);
         data = std::regex_replace(data, url_r, url,
@@ -151,6 +154,12 @@ static std::string init_client_socket(request_t &request, TcpSocket &socket) {
 }
 
 std::string ProxyClient::_parse_request(std::string &data) {
+    http::Request tmp(data);
+    auto proxy = tmp.json()["headers"].find("Proxy-Connection");
+    if (proxy != tmp.json()["headers"].end()) {
+        tmp.json()["headers"].erase(proxy);
+    }
+    std::string  rs = tmp.string();
     std::smatch m;
     if (regex_search(data, m, url_r)) {
         auto url = m[0].str();
@@ -166,11 +175,11 @@ std::string ProxyClient::_parse_request(std::string &data) {
                      request.hostname + ":"
                   << request.port << std::endl;
 
-        if (request.protocol == http) {
+        if (request.protocol == HTTP) {
             return _http_request(request);
         }
 
-        if (request.protocol == https && request.method == https_method) {
+        if (request.protocol == HTTPS && request.method == https_method) {
             return _https_request(request);
         }
 
