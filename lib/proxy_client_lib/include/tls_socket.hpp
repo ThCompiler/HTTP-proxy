@@ -24,7 +24,7 @@ class SSLSocket : public TcpSocket {
 
     SSLSocket &operator=(SSLSocket &&sok) noexcept;
 
-    bstcp::status init(TcpSocket &&base_socket, bool client = true);
+    bstcp::status init(TcpSocket &&base_socket, bool client = true, std::string domain = "");
 
     ~SSLSocket() override;
 

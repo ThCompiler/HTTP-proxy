@@ -1,6 +1,23 @@
 # HTTP-proxy
 
 ## Запуск сервера
+
+### Настройка для https
+
+Для настройки https требуется сгенерировать корневой сертификат командой, вызванной в корне проекта
+```bash
+make init-ca
+```
+
+Далее следующими командами для ОС **Linux** установить его
+```bash
+sudo mkdir /usr/local/share/ca-certificates/extra
+sudo cp ./ca/ca.crt /usr/local/share/ca-certificates/extra/ca.crt
+sudo update-ca-certificates
+```
+
+### Запуск
+
 Для запуска требуется выполнить следующие команды в корне проекта
 ```bash
 make build-docker

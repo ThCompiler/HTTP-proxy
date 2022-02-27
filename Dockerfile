@@ -24,4 +24,7 @@ ENV USE_PORT=$PORT
 
 COPY --from=build /app/build/http-proxy .
 
+COPY ./certs ./ca
+COPY ./ca ./certs
+
 CMD ./http-proxy -p $USE_PORT

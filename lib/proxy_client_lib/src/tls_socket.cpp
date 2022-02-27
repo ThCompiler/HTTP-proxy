@@ -12,7 +12,7 @@ SSLSocket::~SSLSocket() {
     TcpSocket::~TcpSocket();
 }
 
-status SSLSocket::init(TcpSocket &&base_socket, bool client) {
+status SSLSocket::init(TcpSocket &&base_socket, bool client, std::string domain) {
     if (base_socket._status != bstcp::status::connected) {
         return _ssl_status = base_socket._status;
     }
@@ -31,26 +31,27 @@ status SSLSocket::init(TcpSocket &&base_socket, bool client) {
     base_socket._address = socket_addr_in();
     base_socket._type = (uint16_t) SocketType::unset_type;
 
-    SSLCert::free_cert();
     if (!SSLCert::is_inited()) {
-        if (!SSLCert::file_init(".\\certs\\server.crt", ".\\cert.key")) {
-            return _ssl_status = bstcp::status::err_socket_init;
-        }
+        return _ssl_status = bstcp::status::err_socket_init;
     }
 
     if (client) {
         _cert = SSLCert::get_client_cert();
     } else {
-        _cert = SSLCert::get_server_cert();
+        _cert = SSLCert::get_server_cert(domain);
     }
 
     if (_cert == nullptr) {
+        SSLCert::free_cert(_cert);
         return _ssl_status = bstcp::status::err_socket_init;
     }
+
+    ERR_clear_error();
 
     _ssl_socket = SSL_new(_cert);
     if (_ssl_socket == nullptr) {
         _cert = nullptr;
+        SSLCert::free_cert(_cert);
         return _ssl_status = bstcp::status::err_socket_bind;
     }
 
@@ -61,16 +62,20 @@ status SSLSocket::init(TcpSocket &&base_socket, bool client) {
         status = SSL_connect(_ssl_socket);
     } else {
         status = SSL_accept(_ssl_socket);
-    }
-    if (status != 1) {
         auto ret = SSL_get_error(_ssl_socket, status);
-        if (ret == SSL_ERROR_WANT_READ || ret == SSL_ERROR_WANT_WRITE) {
-            return _ssl_status = bstcp::status::connected;
+        while (ret == SSL_ERROR_WANT_READ || ret == SSL_ERROR_WANT_WRITE) {
+            ret = SSL_get_error(_ssl_socket, status);
+            ERR_clear_error();
+            status = SSL_accept(_ssl_socket);
         }
-        ERR_print_errors_fp(stdout);
-        return _ssl_status = bstcp::status::err_socket_connect;
     }
 
+    if (status != 1) {
+        ERR_print_errors_fp(stdout);
+        ERR_clear_error();
+        SSLCert::free_cert(_cert);
+        return _ssl_status = bstcp::status::err_socket_connect;
+    }
 
     return _ssl_status = bstcp::status::connected;
 }
@@ -83,6 +88,7 @@ bool SSLSocket::recv_from(void *buffer, int size) {
 
     auto answ = SSL_read(_ssl_socket, buffer, size);
     if (answ <= 0) {
+        ERR_clear_error();
         return false;
     }
 
@@ -95,6 +101,7 @@ bool SSLSocket::send_to(const void *buffer, int size) const {
     }
 
     if (SSL_write(_ssl_socket, buffer, size) < 0) {
+        ERR_clear_error();
         return false;
     }
 
@@ -154,6 +161,8 @@ void SSLSocket::_clear_ssl() {
     if (_ssl_status != status::connected) {
         return;
     }
+    SSLCert::free_cert(_cert);
+    _cert = nullptr;
     _ssl_status = status::disconnected;
 }
 

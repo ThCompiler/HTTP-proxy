@@ -1,163 +1,117 @@
 #include "include/ssl_cert.hpp"
 
 #include <cstring>
+#include <utility>
+#include <filesystem>
 
-SSL_CTX *proxy::SSLCert::_server_cert = nullptr;
-SSL_CTX *proxy::SSLCert::_client_cert = nullptr;
+namespace fs = std::filesystem;
+
 bool proxy::SSLCert::_is_init = false;
 bool proxy::SSLCert::_is_init_lib = false;
+std::string proxy::SSLCert::_key_file;
+std::string proxy::SSLCert::_root_dir;
 
 bool proxy::SSLCert::is_inited() {
     return _is_init;
 }
 
-int password_cb(char *buf, int size, int, void *password) {
-    strncpy(buf, (char *)(password), size);
-    buf[size - 1] = '\0';
-    return (int)strlen(buf);
-}
-
-EVP_PKEY *generate_pk() {
-    EVP_PKEY *pkey = nullptr;
-    EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
-    EVP_PKEY_keygen_init(pctx);
-    EVP_PKEY_CTX_set_rsa_keygen_bits(pctx, 2048);
-    EVP_PKEY_keygen(pctx, &pkey);
-    return pkey;
-}
-
-X509 *generate_cert(EVP_PKEY *pkey) {
-    X509 *x509 = X509_new();
-    X509_set_version(x509, 2);
-    ASN1_INTEGER_set(X509_get_serialNumber(x509), 0);
-    X509_gmtime_adj(X509_get_notBefore(x509), 0);
-    X509_gmtime_adj(X509_get_notAfter(x509), (long)60*60*24*365);
-    X509_set_pubkey(x509, pkey);
-
-    X509_NAME *name = X509_get_subject_name(x509);
-    X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, (const unsigned char*)"RUS", -1, -1, 0);
-    X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (const unsigned char*)"vk.com", -1, -1, 0);
-    X509_set_issuer_name(x509, name);
-    X509_sign(x509, pkey, EVP_sha3_512());
-
-    return x509;
-}
-
-bool proxy::SSLCert::base_init() {
-    if (!_is_init_lib) {
-        init_ssl_lib();
-    }
-
-    if (_is_init) {
-        return true;
-    }
-
-    const SSL_METHOD *method_client = TLS_client_method();
-    _client_cert = SSL_CTX_new(method_client);
-
-    if (_client_cert == nullptr) {
-        ERR_print_errors_fp(stderr);
-        return false;
-    }
-
-    const SSL_METHOD *method_server = TLS_server_method();
-    _server_cert = SSL_CTX_new(method_server);
-
-    if (_server_cert == nullptr) {
-        ERR_print_errors_fp(stderr);
-        SSL_CTX_free(_client_cert);
-        _client_cert = nullptr;
-        return false;
-    }
-
-    EVP_PKEY *pkey = generate_pk();
-    X509 *x509 = generate_cert(pkey);
-    SSL_CTX_use_certificate(_server_cert, x509);
-    SSL_CTX_set_default_passwd_cb(_server_cert, password_cb);
-    SSL_CTX_use_PrivateKey(_server_cert, pkey);
-
-    SSL_CTX_set_verify(_server_cert, SSL_VERIFY_NONE, nullptr);
-
-    return _is_init = true;
-}
-
 SSL_CTX *proxy::SSLCert::get_client_cert() {
-    return _client_cert;
-}
-
-SSL_CTX *proxy::SSLCert::get_server_cert() {
-    return _server_cert;
-}
-
-bool proxy::SSLCert::file_init(std::string cert_file, std::string key_file) {
-    if (!_is_init_lib) {
-        init_ssl_lib();
+    if (!_is_init) {
+        return nullptr;
     }
 
-    if (_is_init) {
-        return true;
-    }
+    SSL_CTX *client_cert = SSL_CTX_new(TLS_client_method());
 
-    const SSL_METHOD *method_client = TLS_client_method();
-    _client_cert = SSL_CTX_new(method_client);
-
-    if (_client_cert == nullptr) {
+    if (client_cert == nullptr) {
         ERR_print_errors_fp(stderr);
-        return false;
+        ERR_clear_error();
+        return nullptr;
+    }
+    return client_cert;
+}
+
+SSL_CTX *proxy::SSLCert::get_server_cert(const std::string &domain) {
+    if (!_is_init) {
+        return nullptr;
     }
 
     const SSL_METHOD *method_server = TLS_server_method();
-    _server_cert = SSL_CTX_new(method_server);
+    SSL_CTX *server_cert = SSL_CTX_new(method_server);
 
-    if (_server_cert == nullptr) {
+    if (server_cert == nullptr) {
         ERR_print_errors_fp(stderr);
-        SSL_CTX_free(_client_cert);
-        _client_cert = nullptr;
-        return false;
+        ERR_clear_error();
+        return nullptr;
     }
+
+    file_cert(server_cert, domain);
+
+    return server_cert;
+}
+
+std::string
+generate_cert(const std::string &domain, const std::string &certs_dir) {
+    std::string result = certs_dir + "/" + domain + ".crt";
+    bool found = false;
+    for (const auto &entry: fs::directory_iterator(certs_dir)) {
+        if (entry.path().filename() == domain + ".crt") {
+            found = true;
+            break;
+        }
+    }
+
+    if (found) {
+        return result;
+    }
+
+    if (std::system(std::string(
+            "cd " + certs_dir + " && sh gen_cert.sh " + domain).c_str()) != 0) {
+        return "";
+    }
+    return result;
+}
+
+bool proxy::SSLCert::file_cert(SSL_CTX *cert, const std::string &domain) {
+    auto cert_file = generate_cert(domain, _root_dir);
 
     _is_init = true;
-    if (SSL_CTX_load_verify_locations(_server_cert, cert_file.data(), key_file.data()) != 1) {
+    if (SSL_CTX_load_verify_locations(cert, cert_file.data(),
+                                      _key_file.data()) != 1) {
         ERR_print_errors_fp(stderr);
-        free_cert();
+        ERR_clear_error();
         return false;
     }
 
-    if (SSL_CTX_set_default_verify_paths(_server_cert) != 1) {
+    if (SSL_CTX_set_default_verify_paths(cert) != 1) {
         ERR_print_errors_fp(stderr);
-        free_cert();
+        ERR_clear_error();
         return false;
     }
 
-    if ( SSL_CTX_use_certificate_file(_server_cert, cert_file.data(), SSL_FILETYPE_PEM) <= 0 ) {
+    if (SSL_CTX_use_certificate_file(cert, cert_file.data(),
+                                     SSL_FILETYPE_PEM) <= 0) {
         ERR_print_errors_fp(stderr);
-        free_cert();
+        ERR_clear_error();
         return false;
     }
 
-    if ( SSL_CTX_use_PrivateKey_file(_server_cert, key_file.data(), SSL_FILETYPE_PEM) <= 0 ) {
+    if (SSL_CTX_use_PrivateKey_file(cert, _key_file.data(), SSL_FILETYPE_PEM) <=
+        0) {
         ERR_print_errors_fp(stderr);
-        free_cert();
+        ERR_clear_error();
         return false;
     }
 
-    if ( !SSL_CTX_check_private_key(_server_cert) ) {
+    if (!SSL_CTX_check_private_key(cert)) {
         fprintf(stderr, "Private key does not match the public certificate\n");
-        free_cert();
         return false;
     }
 
     return true;
 }
 
-void proxy::SSLCert::free_cert() {
-    if (is_inited()) {
-        SSL_CTX_free(_client_cert);
-        _client_cert = nullptr;
-        SSL_CTX_free(_server_cert);
-        _server_cert = nullptr;
-        _is_init = false;
-    }
+void proxy::SSLCert::free_cert(SSL_CTX *_cert) {
+    SSL_CTX_free(_cert);
 }
 
 void proxy::SSLCert::init_ssl_lib() {
@@ -167,5 +121,28 @@ void proxy::SSLCert::init_ssl_lib() {
     OpenSSL_add_all_algorithms();
     SSL_library_init();
     _is_init_lib = true;
+}
+
+void proxy::SSLCert::init(std::string root_dir, std::string key_file) {
+    if (!_is_init_lib) {
+        init_ssl_lib();
+    }
+
+    if (!fs::is_directory(fs::path(root_dir))
+        || !fs::exists(fs::path(key_file))) {
+        return;
+    }
+
+    proxy::SSLCert::_root_dir = std::move(root_dir);
+    proxy::SSLCert::_key_file = std::move(key_file);
+    _is_init = true;
+}
+
+bool proxy::SSLCert::clear_cert_dir() {
+    if (!_is_init) {
+        return false;
+    }
+    return std::system(std::string(
+            "cd " + _root_dir + " && rm -rf *.crt").c_str()) != 0;
 }
 

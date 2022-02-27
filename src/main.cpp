@@ -20,6 +20,7 @@ std::string getHostStr(const uniq_ptr<ISocket> &client) {
 
 int main(int argc, char *argv[]) {
     int opt;
+    proxy::SSLCert::init("certs", "certs/cert.key");
 
     int http_port = 8081;
     while ((opt = getopt(argc, argv, "p:")) != -1) {
@@ -58,4 +59,6 @@ int main(int argc, char *argv[]) {
         std::cerr << except.what();
         return EXIT_FAILURE;
     }
+
+    proxy::SSLCert::clear_cert_dir();
 }

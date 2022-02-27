@@ -93,6 +93,7 @@ struct request_t {
 
 static std::string read_from_socket(bstcp::ISocket &socket, size_t chank_size) {
     tcp_data_t buffer(chank_size);
+
     bool status = socket.recv_from(buffer.data(), (int)chank_size);
     if (!status) {
         return "";
@@ -115,7 +116,7 @@ static std::string read_from_socket(bstcp::ISocket &socket, size_t chank_size) {
         }
 
         buffer = tcp_data_t(chank_size);
-        status = socket.recv_from(buffer.data(), chank_size);
+        status = socket.recv_from(buffer.data(), (int)chank_size);
     }
 
     return res;
@@ -183,9 +184,20 @@ std::string ProxyClient::_https_request(request_t &request) {
     send_to(https_answer.data(), (int) https_answer.size());
 
     SSLSocket client_socket;
-    if (client_socket.init(std::move(_socket), false) != bstcp::status::connected) {
+    if (client_socket.init(std::move(_socket), false, request.hostname) != bstcp::status::connected) {
         return "HTTP/1.1 525 SSL Handshake Failed \n Can't connect to client by tls \n\n";
     }
+
+    if(!client_socket.is_allow_to_rwrite(1000)) {
+        return "";
+    }
+
+    auto message = read_from_socket(client_socket, client_chank_size);
+
+    if (message.empty()) {
+        return "HTTP/1.1 400 Bad request \n Empty message from client \n\n";
+    }
+
     TcpSocket to;
     auto res = init_client_socket(request, to);
     if (!res.empty()) {
@@ -196,8 +208,6 @@ std::string ProxyClient::_https_request(request_t &request) {
     if (ssl_socket.init(std::move(to)) != bstcp::status::connected) {
         return "HTTP/1.1 525 SSL Handshake Failed \n Can't connect to server by tls \n\n";
     }
-
-    auto message = read_from_socket(client_socket, client_chank_size);
 
     ssl_socket.send_to(message.data(), message.size());
     message.clear();

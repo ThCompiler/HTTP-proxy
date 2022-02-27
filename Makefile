@@ -4,8 +4,10 @@ PORT = 8080
 
 build:
 	mkdir build
-	cd build
-	cmake ..
+	cd build && cmake ..
+
+init-ca:
+	cd ca && sh ./gen_ca.sh
 
 build-docker:
 	docker build --no-cache . --tag $(PROJECT) --build-arg PORT=$(PORT)
