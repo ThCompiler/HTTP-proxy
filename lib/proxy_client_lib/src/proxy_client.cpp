@@ -188,10 +188,6 @@ std::string ProxyClient::_https_request(request_t &request) {
         return "HTTP/1.1 525 SSL Handshake Failed \n Can't connect to client by tls \n\n";
     }
 
-    if(!client_socket.is_allow_to_rwrite(1000)) {
-        return "";
-    }
-
     auto message = read_from_socket(client_socket, client_chank_size);
 
     if (message.empty()) {
