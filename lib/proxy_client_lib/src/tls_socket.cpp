@@ -33,7 +33,7 @@ status SSLSocket::init(TcpSocket &&base_socket, bool client) {
 
     SSLCert::free_cert();
     if (!SSLCert::is_inited()) {
-        if (!SSLCert::base_init()) {
+        if (!SSLCert::file_init(".\\certs\\server.crt", ".\\cert.key")) {
             return _ssl_status = bstcp::status::err_socket_init;
         }
     }
@@ -50,7 +50,6 @@ status SSLSocket::init(TcpSocket &&base_socket, bool client) {
 
     _ssl_socket = SSL_new(_cert);
     if (_ssl_socket == nullptr) {
-        SSL_CTX_free(_cert);
         _cert = nullptr;
         return _ssl_status = bstcp::status::err_socket_bind;
     }

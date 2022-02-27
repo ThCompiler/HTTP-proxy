@@ -36,7 +36,7 @@ X509 *generate_cert(EVP_PKEY *pkey) {
 
     X509_NAME *name = X509_get_subject_name(x509);
     X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, (const unsigned char*)"RUS", -1, -1, 0);
-    X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (const unsigned char*)"http-proxy", -1, -1, 0);
+    X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (const unsigned char*)"vk.com", -1, -1, 0);
     X509_set_issuer_name(x509, name);
     X509_sign(x509, pkey, EVP_sha3_512());
 
