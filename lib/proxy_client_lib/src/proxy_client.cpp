@@ -78,18 +78,8 @@ struct request_t {
     std::string hostname;
     std::string method;
     std::string url;
-    std::string &data;
+    http::Request data;
     std::string protocol;
-
-    request_t(std::string &&url_, std::string &data_)
-            : url(url_), data(data_) {
-        method = get_method(data);
-        protocol = method == https_method ? HTTPS : get_protocol(url);
-        hostname = get_hostname(url);
-        port = get_port(hostname);
-        data = std::regex_replace(data, url_r, url,
-                                  std::regex_constants::format_first_only);
-    }
 };
 
 }
@@ -155,38 +145,32 @@ static std::string init_client_socket(request_t &request, TcpSocket &socket) {
 
 std::string ProxyClient::_parse_request(std::string &data) {
     http::Request tmp(data);
-    auto proxy = tmp.json()["headers"].find("Proxy-Connection");
-    if (proxy != tmp.json()["headers"].end()) {
-        tmp.json()["headers"].erase(proxy);
+    tmp.delete_header("Proxy-Connection");
+
+    auto url = tmp.get_url();
+    request_t req;
+    req.method = get_method(data);
+    req.protocol = req.method  == https_method ? HTTPS : get_protocol(url);
+    req.hostname = get_hostname(url);
+    req.port = ::get_port(req.hostname);
+    req.url = std::move(url);
+    tmp.set_url(req.url);
+    auto tm = tmp.string();
+    req.data = std::move(tmp);
+
+
+    std::cout << "Connect to client" + req.protocol + "://" +
+            req.hostname + ":" << req.port << std::endl;
+
+    if (req.protocol == HTTP) {
+        return _http_request(req);
     }
-    std::string  rs = tmp.string();
-    std::smatch m;
-    if (regex_search(data, m, url_r)) {
-        auto url = m[0].str();
 
-        const std::regex proxy_header(
-                R"((\r\n|\n)(Proxy-Connection[A-z: .-]+))");
-        data = std::regex_replace(data, proxy_header, "",
-                                  std::regex_constants::format_first_only);
-
-        request_t request(std::move(url), data);
-
-        std::cout << "Connect to client" + request.protocol + "://" +
-                     request.hostname + ":"
-                  << request.port << std::endl;
-
-        if (request.protocol == HTTP) {
-            return _http_request(request);
-        }
-
-        if (request.protocol == HTTPS && request.method == https_method) {
-            return _https_request(request);
-        }
-
-        return "HTTP/1.1 404 Not found \n Unknown protocol " +
-               request.protocol + "\n\n";
+    if (req.protocol == HTTPS && req.method == https_method) {
+        return _https_request(req);
     }
-    return {};
+
+    return "HTTP/1.1 404 Not found \n Unknown protocol " + req.protocol + "\n\n";
 }
 
 std::string ProxyClient::_https_request(request_t &request) {
@@ -230,8 +214,7 @@ std::string ProxyClient::_http_request(request_t &request) {
         return res;
     }
 
-    send_to_socket(to, request.data, client_chank_size);
-    request.data.clear();
+    send_to_socket(to, request.data.string(), client_chank_size);
 
     if (!to.is_allow_to_read(2000)) {
         return "HTTP/1.1 408 Request Timeout  \n 2s time out \n\n";
