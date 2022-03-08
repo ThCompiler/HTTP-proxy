@@ -29,6 +29,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    proxy::ProxyClient::set_repository("host=localhost user=proxy password=pwd port=5432 dbname=proxy connect_timeout=10");
+
     try {
         TcpServer<proxy::TcpSocket, proxy::ProxyClient> server(http_port,
                          {1, 1, 1}, // Keep alive{idle:1s, interval: 1s, pk_count: 1}

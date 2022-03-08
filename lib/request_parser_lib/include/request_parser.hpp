@@ -9,10 +9,12 @@ namespace http {
 class Request {
   public:
 
-    Request() = default;
+    Request();
     explicit Request(const std::string &request);
 
     bool parse(const std::string &request);
+
+    void read_json_from_string(const std::string &json);
 
     [[nodiscard]] std::string string() const;
 

@@ -2,12 +2,30 @@
 
 #include <map>
 
+static const char * divider = "\r\n";
+
 static const char * METHOD = "method";
 static const char * URL = "url";
 static const char * VERSION = "version";
 static const char * BODY = "body";
 static const char * HEADERS = "headers";
 static const char * COOKIE = "cookies";
+static const char * PARAM = "params";
+
+std::string decode_url(const std::string &url) {
+    std::string decoded_url;
+    for (size_t i = 0; i < url.size(); i++) {
+        if (url[i] == '%') {
+            decoded_url += static_cast<char>(
+                    strtoll(url.substr(i + 1, 2).c_str(), nullptr, 16)
+            );
+            i = i + 2;
+        } else {
+            decoded_url += url[i];
+        }
+    }
+    return decoded_url;
+}
 
 // trim from start (in place)
 static inline void ltrim(std::string &s) {
@@ -38,6 +56,42 @@ std::size_t replace_all(std::string& inout, std::string_view what, std::string_v
     return count;
 }
 
+bool parse_url(nj::json& request, const std::string &url) {
+    size_t end = 0;
+    size_t next_end = url.find('?');
+    if (next_end == std::string::npos) {
+        request[URL] = url;
+        return true;
+    }
+    request[URL] = trim(url.substr(end, next_end - end));
+    end = next_end;
+    next_end = url.find('&', end + 1);
+    std::map<std::string, std::string> res;
+    while(next_end != std::string::npos) {
+        auto param = trim(url.substr(end + 1, next_end - end - 1));
+        auto end_value = param.find('=');
+        if (end_value == std::string::npos) {
+            return false;
+        }
+
+        auto name = trim(param.substr(0, end_value));
+        auto value = trim(param.substr(end_value + 1));
+        res[name] = value;
+        end = next_end + 1;
+        next_end = url.find('&', next_end + 1);
+    }
+    auto param = trim(url.substr(end + 1, url.size() - end));
+    auto end_value = param.find('=');
+    if (end_value == std::string::npos) {
+        return false;
+    }
+    auto name = trim(param.substr(0, end_value));
+    auto value = trim(param.substr(end_value + 1));
+    res[name] = value;
+
+    request[PARAM] = res;
+    return true;
+}
 
 bool parse_first_line(nj::json& request, const std::string &text) {
     auto end = text.find(' ');
@@ -49,7 +103,12 @@ bool parse_first_line(nj::json& request, const std::string &text) {
     if (next_end == std::string::npos) {
         return false;
     }
-    request[URL] = trim(text.substr(end, next_end - end));
+    auto url = decode_url(trim(text.substr(end, next_end - end)));
+
+    if (!parse_url(request, url)) {
+        return false;
+    }
+
     if (next_end == text.size()) {
         return false;
     }
@@ -77,6 +136,9 @@ std::map<std::string, std::string> parse_cookies(const std::string &text) {
 
     auto cookie = trim(text.substr(end + 1, text.size() - end));
     auto end_value = cookie.find('=');
+    if (end_value == std::string::npos) {
+        return {};
+    }
     auto name = trim(cookie.substr(0, end_value));
     auto value = trim(cookie.substr(end_value + 1));
     res[name] = value;
@@ -129,7 +191,16 @@ bool http::Request::parse(const std::string &request) {
 
     auto end_headers = request_.find("\n\n");
     if (end_headers == std::string::npos) {
-        return false;
+        end_headers = request_.find('\n');
+        if (end_headers == std::string::npos) {
+            return false;
+        } else {
+            if (!parse_first_line(_request, first_line)) {
+                _request.clear();
+                return false;
+            }
+            return true;
+        }
     }
     auto headers = trim(request_.substr(0, end_headers)) + "\n";
     request_ = trim(request_.substr(end_headers + 2, request_.size() - end_headers - 2));
@@ -153,14 +224,42 @@ bool http::Request::parse(const std::string &request) {
 
 std::string http::Request::string() const {
     std::string res;
-    if (_request.contains(METHOD) && _request.contains(URL) && _request.contains(VERSION)) {
-        res = _request[METHOD].get<std::string>() + " " + _request[URL].get<std::string>()
-              + " " + _request[VERSION].get<std::string>() + "\n";
+    if (_request.contains(METHOD)) {
+        res = _request[METHOD].get<std::string>();
     }
+
+    if (_request.contains(METHOD) && _request.contains(URL)) {
+        res += " ";
+    }
+
+    if (_request.contains(URL)) {
+        res += _request[URL].get<std::string>();
+    }
+
+    if (_request.contains(PARAM)) {
+        if (!_request[PARAM].empty()) {
+            res += "?";
+        }
+
+        for (auto&[key, value]: _request[PARAM].items()) {
+            res += key + "=" + value.get<std::string>() + "&";
+        }
+    }
+
+    if (_request.contains(URL) && _request.contains(VERSION)) {
+        res += " ";
+    }
+
+
+    if (_request.contains(VERSION)) {
+        res += _request[VERSION].get<std::string>();
+    }
+
+    res += divider;
 
     if (_request.contains(HEADERS)) {
         for (auto&[key, value]: _request[HEADERS].items()) {
-            res += key + ": " + value.get<std::string>() + "\n";
+            res += key + ": " + value.get<std::string>() + divider;
         }
     }
 
@@ -170,17 +269,17 @@ std::string http::Request::string() const {
         }
 
         for (auto&[key, value]: _request[COOKIE].items()) {
-            std::string tmp = _request[HEADERS].dump();
             res += key + "=" + value.get<std::string>() + ";";
         }
 
         if (!_request[COOKIE].empty()) {
-            res += "\n";
+            res += divider;
         }
     }
 
+    res += divider;
     if (_request.contains(BODY)) {
-        res += "\n" + _request[BODY].get<std::string>();
+        res += _request[BODY].get<std::string>();
     }
     return res;
 }
@@ -222,7 +321,7 @@ std::string http::Request::get_body() const {
 }
 
 bool http::Request::set_header(const std::string &name, const std::string &value) {
-    if (_request.contains(HEADERS) && _request.is_string()) {
+    if (_request.contains(HEADERS)) {
         return _set_param(_request[HEADERS], name, value);
     }
     return false;
@@ -279,3 +378,11 @@ std::map<std::string, std::string> http::Request::get_cookies() const {
     }
     return {};
 }
+
+http::Request::Request() {
+    _request[HEADERS] = std::map<std::string, std::string>();
+}
+
+void http::Request::read_json_from_string(const std::string &json) {
+    _request = nj::json::parse(json);
+};

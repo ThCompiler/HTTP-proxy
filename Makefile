@@ -13,10 +13,11 @@ build-docker:
 	docker build --no-cache . --tag $(PROJECT) --build-arg PORT=$(PORT)
 
 docker-run:
-	docker run -p $(PORT):$(PORT) --name $(CONTAINER) -t $(PROJECT)
+	HTTP_PORT=$(PORT) docker-compose up
 
 docker-stop:
-	docker stop $(CONTAINER)
+	HTTP_PORT=$(PORT) docker-compose stop
 
 docker-free:
+	HTTP_PORT=$(PORT) docker-compose down
 	docker rm -vf $(CONTAINER) || true

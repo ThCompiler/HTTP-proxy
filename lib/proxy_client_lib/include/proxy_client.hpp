@@ -4,13 +4,13 @@
 
 #include "tcp_server_lib.hpp"
 #include "tcp_socket.hpp"
-
+#include "repository_lib.hpp"
 
 namespace proxy {
 
 struct request_t;
 
-struct ProxyClient : public bstcp::IServerClient {
+class ProxyClient : public bstcp::IServerClient {
   public:
     ProxyClient() = delete;
 
@@ -54,6 +54,8 @@ struct ProxyClient : public bstcp::IServerClient {
 
     [[nodiscard]] bool is_allow_to_rwrite(long timeout) const override;
 
+    static void set_repository(const std::string& conn_string);
+
   private:
 
     std::string _parse_request(std::string &data);
@@ -63,6 +65,8 @@ struct ProxyClient : public bstcp::IServerClient {
     std::string _https_request(request_t &request);
 
     TcpSocket _socket;
+
+    static std::unique_ptr<rp::PQStoreRequest> _rep;
 };
 
 }

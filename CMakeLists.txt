@@ -24,8 +24,10 @@ add_executable(${PROJECT_NAME} ${SOURCE})
 add_subdirectory("lib/tcp_server_lib")
 add_subdirectory("lib/proxy_client_lib")
 add_subdirectory("lib/request_parser_lib")
+add_subdirectory("lib/repository_lib")
 
-target_link_libraries(proxy_client_lib tcp_server_lib request_parser_lib pthread)
+target_link_libraries(repository_lib request_parser_lib pthread)
+target_link_libraries(proxy_client_lib tcp_server_lib request_parser_lib pthread repository_lib)
 
 target_link_libraries(${PROJECT_NAME} proxy_client_lib tcp_server_lib pthread)
 

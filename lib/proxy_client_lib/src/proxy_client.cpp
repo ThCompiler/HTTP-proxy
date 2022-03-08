@@ -6,11 +6,10 @@
 #include <regex>
 #include <iostream>
 
-
 const auto https_method = "CONNECT";
 const auto HTTPS = "https";
 const auto HTTP = "http";
-const std::string https_answer = "HTTP/1.0 200 Connection established\n\n";
+const auto https_answer = "HTTP/1.0 200 Connection established\n\n";
 
 const size_t client_chank_size = 1024;
 const size_t server_chank_size = 20000;
@@ -40,17 +39,6 @@ static std::string get_protocol(std::string &url) {
     return protocol;
 }
 
-/*
-static size_t get_content_len(std::string &url) {
-    auto end = url.find('/');
-    if (end == std::string::npos) {
-        return 0;
-    }
-    auto protocol = url.substr(0, end - 1);
-    url = url.substr(end + 2, url.size() - end);
-    return 1;
-}*/
-
 static std::string get_hostname(std::string &url) {
     auto end = url.find('/');
     if (end == std::string::npos) {
@@ -63,25 +51,22 @@ static std::string get_hostname(std::string &url) {
     return hostname;
 }
 
-static std::string get_method(const std::string &request) {
-    auto end = request.find(' ');
-    if (end == std::string::npos) {
-        return "";
-    }
-    return request.substr(0, end);
-}
-
 namespace proxy {
 
-struct request_t {
-    int port;
-    std::string hostname;
-    std::string method;
-    std::string url;
-    http::Request data;
-    std::string protocol;
-};
+    struct request_t {
+        int port{};
+        std::string hostname;
+        std::string method;
+        std::string url;
+        http::Request data;
+        std::string protocol;
+    };
 
+    std::unique_ptr<rp::PQStoreRequest> ProxyClient::_rep = nullptr;
+
+    void ProxyClient::set_repository(const std::string &conn_string) {
+        _rep = std::make_unique<rp::PQStoreRequest>(conn_string);
+    }
 }
 
 static std::string read_from_socket(bstcp::ISocket &socket, size_t chank_size) {
@@ -147,16 +132,28 @@ std::string ProxyClient::_parse_request(std::string &data) {
     http::Request tmp(data);
     tmp.delete_header("Proxy-Connection");
 
+
+
     auto url = tmp.get_url();
     request_t req;
-    req.method = get_method(data);
+    req.method = tmp.get_method();
     req.protocol = req.method  == https_method ? HTTPS : get_protocol(url);
     req.hostname = get_hostname(url);
     req.port = ::get_port(req.hostname);
     req.url = std::move(url);
     tmp.set_url(req.url);
-    auto tm = tmp.string();
+
+    try {
+        auto id = ProxyClient::_rep->add(tmp, req.hostname);
+        std::cout << "Req id " << id << "\n";
+        std::cout << "Req: \n" << ProxyClient::_rep->get_by_id(id).string() << "\n";
+        std::cout << "Req by host: \n" << ProxyClient::_rep->get_by_host(req.hostname).string() << "\n";
+    } catch(std::exception& e) {
+        std::cerr << e.what() << "\n";
+    }
+
     req.data = std::move(tmp);
+
 
 
     std::cout << "Connect to client" + req.protocol + "://" +
@@ -174,7 +171,7 @@ std::string ProxyClient::_parse_request(std::string &data) {
 }
 
 std::string ProxyClient::_https_request(request_t &request) {
-    send_to(https_answer.data(), (int) https_answer.size());
+    send_to(https_answer, (int)std::string(https_answer).size());
 
     SSLSocket client_socket;
     if (client_socket.init(std::move(_socket), false, request.hostname) != bstcp::status::connected) {
