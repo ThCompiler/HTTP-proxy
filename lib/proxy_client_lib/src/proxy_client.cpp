@@ -69,8 +69,13 @@ namespace proxy {
     }
 }
 
-static std::string read_from_socket(bstcp::ISocket &socket, size_t chank_size) {
+std::string ProxyClient::_read_from_socket(bstcp::ISocket &socket, size_t chank_size) {
     tcp_data_t buffer(chank_size);
+
+    if(!socket.is_allow_to_read(1000)) {
+        break;
+    }
+
 
     bool status = socket.recv_from(buffer.data(), (int)chank_size);
     if (!status) {
@@ -100,7 +105,7 @@ static std::string read_from_socket(bstcp::ISocket &socket, size_t chank_size) {
     return res;
 }
 
-static bool send_to_socket(bstcp::ISocket &socket, const std::string& data, size_t chank_size) {
+bool ProxyClient::_send_to_socket(bstcp::ISocket &socket, const std::string& data, size_t chank_size) {
     bool res = true;
     for (size_t i = 0; (i < data.size()) && res; i += chank_size) {
         res = socket.send_to(data.data() + i, (int)std::min(chank_size, data.size() - i));
@@ -108,17 +113,17 @@ static bool send_to_socket(bstcp::ISocket &socket, const std::string& data, size
     return res;
 }
 
-static std::string init_client_socket(request_t &request, TcpSocket &socket) {
+std::string ProxyClient::_init_client_socket(const std::string& host, size_t port, TcpSocket &socket) {
     socket_addr_in adr;
-    if (bstcp::hostname_to_ip(request.hostname.c_str(), &adr) == -1) {
+    if (bstcp::hostname_to_ip(host.c_str(), &adr) == -1) {
         return "HTTP/1.1 523 Origin Is Unreachable \n Can't resolve hostname " +
-               request.hostname + "\n\n";
+                host + "\n\n";
     }
 
 #ifdef _WIN32
     if (socket.init((uint32_t) adr.sin_addr.S_un.S_addr, request.port,
 #else
-    if (socket.init((uint32_t) adr.sin_addr.s_addr, request.port,
+    if (socket.init((uint32_t) adr.sin_addr.s_addr, port,
 #endif
                     (uint16_t) SocketType::blocking_socket
                     | (uint16_t) SocketType::client_socket) !=
@@ -130,34 +135,29 @@ static std::string init_client_socket(request_t &request, TcpSocket &socket) {
 
 std::string ProxyClient::_parse_request(std::string &data) {
     http::Request tmp(data);
-    tmp.delete_header("Proxy-Connection");
+    if (tmp.get_header("Proxy-Connection").empty() && tmp.get_method() != https_method) {
+        return _parse_not_proxy_request(tmp);
+    }
+    return _parse_proxy_request(tmp);
+}
 
 
+std::string ProxyClient::_parse_proxy_request(http::Request& data) {
+    data.delete_header("Proxy-Connection");
 
-    auto url = tmp.get_url();
+    auto url = data.get_url();
     request_t req;
-    req.method = tmp.get_method();
+    req.method = data.get_method();
     req.protocol = req.method  == https_method ? HTTPS : get_protocol(url);
     req.hostname = get_hostname(url);
     req.port = ::get_port(req.hostname);
     req.url = std::move(url);
-    tmp.set_url(req.url);
+    data.set_url(req.url);
 
-    try {
-        auto id = ProxyClient::_rep->add(tmp, req.hostname);
-        std::cout << "Req id " << id << "\n";
-        std::cout << "Req: \n" << ProxyClient::_rep->get_by_id(id).string() << "\n";
-        std::cout << "Req by host: \n" << ProxyClient::_rep->get_by_host(req.hostname).string() << "\n";
-    } catch(std::exception& e) {
-        std::cerr << e.what() << "\n";
-    }
-
-    req.data = std::move(tmp);
-
-
+    req.data = std::move(data);
 
     std::cout << "Connect to client" + req.protocol + "://" +
-            req.hostname + ":" << req.port << std::endl;
+                 req.hostname + ":" << req.port << std::endl;
 
     if (req.protocol == HTTP) {
         return _http_request(req);
@@ -170,6 +170,7 @@ std::string ProxyClient::_parse_request(std::string &data) {
     return "HTTP/1.1 404 Not found \n Unknown protocol " + req.protocol + "\n\n";
 }
 
+
 std::string ProxyClient::_https_request(request_t &request) {
     send_to(https_answer, (int)std::string(https_answer).size());
 
@@ -178,14 +179,27 @@ std::string ProxyClient::_https_request(request_t &request) {
         return "HTTP/1.1 525 SSL Handshake Failed \n Can't connect to client by tls \n\n";
     }
 
-    auto message = read_from_socket(client_socket, client_chank_size);
+    auto message = _read_from_socket(client_socket, client_chank_size);
 
     if (message.empty()) {
         return "HTTP/1.1 400 Bad request \n Empty message from client \n\n";
     }
 
+    try {
+        ProxyClient::_rep->add(rp::request_t{
+                .is_valid = true,
+                .is_https = true,
+                .id = 0,
+                .port = (size_t)request.port,
+                .host = request.hostname,
+                .request = http::Request(message)
+        });
+    } catch(std::exception& e) {
+        std::cerr << e.what() << "\n";
+    }
+
     TcpSocket to;
-    auto res = init_client_socket(request, to);
+    auto res = _init_client_socket(request.hostname, request.port, to);
     if (!res.empty()) {
         return res;
     }
@@ -198,33 +212,46 @@ std::string ProxyClient::_https_request(request_t &request) {
     ssl_socket.send_to(message.data(), message.size());
     message.clear();
 
-    auto answ = read_from_socket(ssl_socket, server_chank_size);
-    send_to_socket(client_socket, answ, client_chank_size);
+    auto answ = _read_from_socket(ssl_socket, server_chank_size);
+    _send_to_socket(client_socket, answ, client_chank_size);
     _socket = client_socket.release();
     return "";
 }
 
 std::string ProxyClient::_http_request(request_t &request) {
+    try {
+        ProxyClient::_rep->add(rp::request_t{
+                .is_valid = true,
+                .is_https = false,
+                .id = 0,
+                .port = (size_t)request.port,
+                .host = request.hostname,
+                .request = request.data
+        });
+    } catch(std::exception& e) {
+        std::cerr << e.what() << "\n";
+    }
+
     TcpSocket to;
-    auto res = init_client_socket(request, to);
+    auto res = _init_client_socket(request.hostname, request.port, to);
     if (!res.empty()) {
         return res;
     }
 
-    send_to_socket(to, request.data.string(), client_chank_size);
+    _send_to_socket(to, request.data.string(), client_chank_size);
 
     if (!to.is_allow_to_read(2000)) {
         return "HTTP/1.1 408 Request Timeout  \n 2s time out \n\n";
     }
 
-    auto answ = read_from_socket(to, server_chank_size);
-    send_to_socket(*this, answ, client_chank_size);
+    auto answ = _read_from_socket(to, server_chank_size);
+    _send_to_socket(*this, answ, client_chank_size);
     return "";
 }
 
 
 void ProxyClient::handle_request() {
-    std::string data = read_from_socket(*this, client_chank_size);
+    std::string data = _read_from_socket(*this, client_chank_size);
     if (data.empty()) {
         return;
     }
@@ -234,7 +261,7 @@ void ProxyClient::handle_request() {
     auto res = _parse_request(data);
 
     if (!res.empty()) {
-        send_to_socket(*this, res, client_chank_size);
+        _send_to_socket(*this, res, client_chank_size);
     }
     disconnect();
 }
@@ -286,3 +313,5 @@ bool ProxyClient::is_allow_to_rwrite(long timeout) const {
 bool ProxyClient::is_allow_to_read(long timeout) const {
     return _socket.is_allow_to_read(timeout);
 }
+
+

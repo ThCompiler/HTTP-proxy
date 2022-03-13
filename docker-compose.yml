@@ -4,14 +4,14 @@ volumes:
   dbbackups:
   postgis-data:
 services:
-  main:
-    image: http_proxy
-    expose:
-      - ${HTTP_PORT}
-    networks:
-      - default
-    depends_on:
-      - bd
+#  main:
+#    image: http_proxy
+#    expose:
+#      - ${HTTP_PORT}
+#    networks:
+#      - default
+#    depends_on:
+#      - bd
   bd:
     image: postgres:latest
     expose:

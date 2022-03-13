@@ -57,6 +57,23 @@ class ProxyClient : public bstcp::IServerClient {
     static void set_repository(const std::string& conn_string);
 
   private:
+    static std::string _read_from_socket(bstcp::ISocket &socket, size_t chank_size);
+
+    static bool _send_to_socket(bstcp::ISocket &socket, const std::string& data, size_t chank_size);
+
+    static std::string _init_client_socket(const std::string& host, size_t port, TcpSocket &socket);
+
+    static std::string _parse_not_proxy_request(http::Request& req);
+
+    static std::string _get_list(http::Request& req);
+
+    static std::string _resend_request(rp::request_t& req);
+
+    static std::string _repeat_request(http::Request& req);
+
+    static std::string _search_vulnerability(http::Request& req);
+
+    std::string _parse_proxy_request(http::Request& req);
 
     std::string _parse_request(std::string &data);
 

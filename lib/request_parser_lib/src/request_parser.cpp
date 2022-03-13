@@ -297,8 +297,27 @@ http::Request::Request(const std::string &request) {
     parse(request);
 }
 
+std::string http::Request::get_param(const std::string& name) const {
+    if (_request.contains(PARAM)) {
+        return _get_param(_request[PARAM], name);
+    }
+    return "";
+}
+
+std::map<std::string, std::string> http::Request::get_params() const {
+    if (_request.contains(PARAM)) {
+        std::map<std::string, std::string> res;
+        for (auto& [key, value] : _request[PARAM].items()) {
+            std::string tmp = _request[PARAM].dump();
+            res[key] = value.get<std::string>();
+        }
+        return res;
+    }
+    return {};
+}
+
 std::string http::Request::get_header(const std::string &name) const {
-    if (_request.contains(HEADERS) && _request.is_string()) {
+    if (_request.contains(HEADERS)) {
         return _get_param(_request[HEADERS], name);
     }
     return "";
@@ -326,6 +345,14 @@ bool http::Request::set_header(const std::string &name, const std::string &value
     }
     return false;
 }
+
+bool http::Request::set_param(const std::string &name, const std::string &value) {
+    if (_request.contains(PARAM)) {
+        return _set_param(_request[PARAM], name, value);
+    }
+    return false;
+}
+
 
 bool http::Request::set_url(const std::string &value) {
     return _set_param(_request, URL, value);
@@ -370,8 +397,8 @@ bool http::Request::_set_param(nj::json &json, const std::string &name, const st
 std::map<std::string, std::string> http::Request::get_cookies() const {
     if (_request.contains(COOKIE)) {
         std::map<std::string, std::string> res;
-        for (auto& [key, value] : _request[HEADERS].items()) {
-            std::string tmp = _request[HEADERS].dump();
+        for (auto& [key, value] : _request[COOKIE].items()) {
+            std::string tmp = _request[COOKIE].dump();
             res[key] = value.get<std::string>();
         }
         return res;
@@ -385,4 +412,5 @@ http::Request::Request() {
 
 void http::Request::read_json_from_string(const std::string &json) {
     _request = nj::json::parse(json);
-};
+}
+

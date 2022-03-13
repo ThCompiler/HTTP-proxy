@@ -21,6 +21,8 @@ class Request {
     [[nodiscard]] std::string get_header(const std::string& name) const;
     [[nodiscard]] std::string get_url() const;
     [[nodiscard]] std::string get_method() const;
+    [[nodiscard]] std::string get_param(const std::string& name) const;
+    [[nodiscard]] std::map<std::string, std::string> get_params() const;
     [[nodiscard]] std::string get_version() const;
     [[nodiscard]] std::string get_body() const;
     [[nodiscard]] std::map<std::string, std::string> get_cookies() const;
@@ -28,6 +30,7 @@ class Request {
     bool set_header(const std::string& name, const std::string& value);
     bool set_url(const std::string& value);
     bool set_method(const std::string& value);
+    bool set_param(const std::string& name, const std::string& value);
     bool set_version(const std::string& value);
     bool set_body(const std::string& value);
     bool delete_header(const std::string& name);
