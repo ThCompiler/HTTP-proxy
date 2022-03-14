@@ -414,3 +414,22 @@ void http::Request::read_json_from_string(const std::string &json) {
     _request = nj::json::parse(json);
 }
 
+std::map<std::string, std::string> http::Request::get_headers() const {
+    if (_request.contains(HEADERS)) {
+        std::map<std::string, std::string> res;
+        for (auto& [key, value] : _request[HEADERS].items()) {
+            std::string tmp = _request[HEADERS].dump();
+            res[key] = value.get<std::string>();
+        }
+        return res;
+    }
+    return {};
+}
+
+bool http::Request::set_cookie(const std::string &name, const std::string &value) {
+    if (_request.contains(COOKIE)) {
+        return _set_param(_request[COOKIE], name, value);
+    }
+    return false;
+}
+

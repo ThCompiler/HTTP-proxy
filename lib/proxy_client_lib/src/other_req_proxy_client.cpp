@@ -8,6 +8,11 @@ const char* get_list_requests = "/list";
 const char* repeat_requests = "/repeat";
 const char* search_vulnerability_requests = "/search";
 
+const char* injection_1 = ";cat /etc/passwd;";
+const char* injection_2 = "|cat /etc/passwd|";
+const char* injection_3 = "`cat /etc/passwd`";
+const char* syndrom_injection = "root:";
+
 const char* limit_param = "limit";
 const char* id_param = "id";
 
@@ -76,7 +81,7 @@ namespace proxy {
         auto param = req.get_param(id_param);
         size_t id = 0;
         if (param.empty()) {
-            return "HTTP/1.1 400 Bad request  \n Not found idt \n\n";
+            return "HTTP/1.1 400 Bad request  \n Not found id \n\n";
         } else {
             id = strtol(param.data(), nullptr, 10);
             if (id <= 0) {
@@ -95,25 +100,132 @@ namespace proxy {
     }
 
     std::string ProxyClient::_search_vulnerability(http::Request& req) {
-        auto param = req.get_param(limit_param);
-        size_t limit = 0;
+        auto param = req.get_param(id_param);
+        size_t id = 0;
         if (param.empty()) {
-            limit = 10;
+            return "HTTP/1.1 400 Bad request  \n Not found id \n\n";
         } else {
-            limit = strtol(param.data(), nullptr, 10);
-            if (limit <= 0) {
-                return "HTTP/1.1 400 Bad request  \n Not allow limit \n\n";
+            id = strtol(param.data(), nullptr, 10);
+            if (id <= 0) {
+                return "HTTP/1.1 400 Bad request  \n Not allow id \n\n";
             }
         }
 
-        auto list = _rep->get_list(limit);
-        std::string res;
-        for (auto& item : list) {
-            res += "id = " + std::to_string(item.id) + "\n Request: \n";
-            res += item.request.string();
-            res += "\n";
+        rp::request_t save_req;
+        try {
+            save_req = _rep->get_by_id(id);
+        } catch(std::exception& ex) {
+            std::cerr << ex.what() << "\n";
+            return "HTTP/1.1 500 Server error  \n BD error \n\n";
         }
-        return res;
+
+        auto tmp = save_req;
+
+        std::string answ = "HTTP/1.1 200 OK \n\n";
+
+        auto params = tmp.request.get_params();
+        for (auto [key, value] : params) {
+            tmp.request.set_param(key, value + injection_1);
+            auto res = _resend_request(tmp);
+            if (res.find(syndrom_injection) != std::string::npos) {
+                answ += "Found vulnerability with param " + key + " with injection " +injection_1;
+                answ += "\n" + res;
+            } else {
+                answ += "Not found vulnerability with param " + key + " and with injection " + injection_1;
+                answ += "\n";
+            }
+
+            tmp.request.set_param(key, value + injection_2);
+            res = _resend_request(tmp);
+            if (res.find(syndrom_injection) != std::string::npos) {
+                answ += "Found vulnerability with param " + key + " with injection " + injection_2;
+                answ += "\n" + res;
+            } else {
+                answ += "Not found vulnerability with param " + key + " and with injection " + injection_2;
+                answ += "\n";
+            }
+
+            tmp.request.set_param(key, value + injection_3);
+            res = _resend_request(tmp);
+            if (res.find(syndrom_injection) != std::string::npos) {
+                answ += "Found vulnerability with param " + key + " with injection " + injection_3;
+                answ += "\n" + res;
+            } else {
+                answ += "Not found vulnerability with param " + key + " and with injection " + injection_3;
+                answ += "\n";
+            }
+            tmp = save_req;
+        }
+
+        auto headers = tmp.request.get_headers();
+        for (auto [key, value] : headers) {
+            tmp.request.set_header(key, value + injection_1);
+            auto res = _resend_request(tmp);
+            if (res.find(syndrom_injection) != std::string::npos) {
+                answ += "Found vulnerability with header " + key + " with injection " +injection_1;
+                answ += "\n" + res;
+            } else {
+                answ += "Not found vulnerability with header " + key + " and with injection " + injection_1;
+                answ += "\n";
+            }
+
+            tmp.request.set_header(key, value + injection_2);
+            res = _resend_request(tmp);
+            if (res.find(syndrom_injection) != std::string::npos) {
+                answ += "Found vulnerability with header " + key + " with injection " + injection_2;
+                answ += "\n" + res;
+            } else {
+                answ += "Not found vulnerability with header " + key + " and with injection " + injection_2;
+                answ += "\n";
+            }
+
+            tmp.request.set_header(key, value + injection_3);
+            res = _resend_request(tmp);
+            if (res.find(syndrom_injection) != std::string::npos) {
+                answ += "Found vulnerability with header " + key + " with injection " + injection_3;
+                answ += "\n" + res;
+            } else {
+                answ += "Not found vulnerability with header " + key + " and with injection " + injection_3;
+                answ += "\n";
+            }
+            tmp = save_req;
+        }
+
+        auto cookies = tmp.request.get_cookies();
+        for (auto [key, value] : cookies) {
+            tmp.request.set_cookie(key, value + injection_1);
+            auto res = _resend_request(tmp);
+            if (res.find(syndrom_injection) != std::string::npos) {
+                answ += "Found vulnerability with cookie " + key + " with injection " +injection_1;
+                answ += "\n" + res;
+            } else {
+                answ += "Not found vulnerability with cookie " + key + " and with injection " + injection_1;
+                answ += "\n";
+            }
+
+            tmp.request.set_cookie(key, value + injection_2);
+            res = _resend_request(tmp);
+            if (res.find(syndrom_injection) != std::string::npos) {
+                answ += "Found vulnerability with cookie " + key + " with injection " + injection_2;
+                answ += "\n" + res;
+            } else {
+                answ += "Not found vulnerability with cookie " + key + " and with injection " + injection_2;
+                answ += "\n";
+            }
+
+            tmp.request.set_cookie(key, value + injection_3);
+            res = _resend_request(tmp);
+            if (res.find(syndrom_injection) != std::string::npos) {
+                answ += "Found vulnerability with cookie " + key + " with injection " + injection_3;
+                answ += "\n" + res;
+            } else {
+                answ += "Not found vulnerability with cookie " + key + " and with injection " + injection_3;
+                answ += "\n";
+            }
+            tmp = save_req;
+        }
+
+        return answ;
     }
 
     std::string ProxyClient::_parse_not_proxy_request(http::Request& req) {

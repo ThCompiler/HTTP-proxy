@@ -73,9 +73,8 @@ std::string ProxyClient::_read_from_socket(bstcp::ISocket &socket, size_t chank_
     tcp_data_t buffer(chank_size);
 
     if(!socket.is_allow_to_read(1000)) {
-        break;
+        return "";
     }
-
 
     bool status = socket.recv_from(buffer.data(), (int)chank_size);
     if (!status) {
